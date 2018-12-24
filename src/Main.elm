@@ -147,6 +147,45 @@ matrixLookAt from to =
 
 
 
+-- polygon
+
+
+type alias Polygon =
+    List Point
+
+
+{-| Assume polygon is convex; otherwise we'd need to loop through all edges,
+not just three. Based on the shoelace formula for area of a simple polygon:
+
+    area : Polygon -> Float
+    area points =
+        let
+            area2 =
+                foldCycle
+                    (\a b result -> (b.x - a.x) * (b.y + a.y) + result)
+                    0
+                    points
+        in
+        abs (area2 / 2)
+
+In the above, area2 will be positive when points are ordered clockwise,
+zero when collinear, and negative when counterclockwise.
+
+-}
+polygonIsClockwise : Polygon -> Bool
+polygonIsClockwise points =
+    case points of
+        a :: b :: c :: _ ->
+            0
+                < ((b.x - a.x) * (b.y + a.y))
+                + ((c.x - b.x) * (c.y + b.y))
+                + ((a.x - c.x) * (a.y + c.y))
+
+        _ ->
+            False
+
+
+
 -- meshes
 
 
@@ -228,7 +267,7 @@ view : Html a
 view =
     let
         cam =
-            matrixLookAt (Vector 2 3 5) vectorZero |> Debug.log "cam"
+            matrixLookAt (Vector 2 3 5) vectorZero
 
         mesh =
             { cube | vertices = cube.vertices |> Dict.map (always (matrixTransform cam)) }
@@ -255,19 +294,33 @@ view =
 
 viewMesh : Mesh -> Svg a
 viewMesh { vertices, faces } =
+    let
+        ( frontFaces, backFaces ) =
+            faces
+                |> Dict.values
+                |> List.map (faceToPolygon vertices)
+                |> List.partition polygonIsClockwise
+                |> Tuple.mapBoth
+                    (List.map (viewPolygon "front"))
+                    (List.map (viewPolygon "back"))
+    in
     Svg.g
         []
-        (faces |> Dict.values |> List.map (viewFace vertices))
+        (backFaces ++ frontFaces)
 
 
-viewFace : Dict Int Point -> Face -> Svg a
-viewFace vertices face =
-    let
-        points =
-            face |> List.map (\v -> Dict.get v vertices |> Maybe.withDefault vectorZero)
-    in
+faceToPolygon : Dict Int Point -> Face -> Polygon
+faceToPolygon vertices face =
+    List.map
+        (\v -> Dict.get v vertices |> Maybe.withDefault vectorZero)
+        face
+
+
+viewPolygon : String -> Polygon -> Svg a
+viewPolygon class points =
     Svg.polygon
-        [ Svg.Attributes.points (points |> pointsToString)
+        [ Svg.Attributes.class class
+        , Svg.Attributes.points (points |> pointsToString)
         ]
         []
 
