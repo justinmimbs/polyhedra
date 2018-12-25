@@ -23,6 +23,18 @@ type alias Point =
     }
 
 
+midpoint : Point -> Point -> Point
+midpoint a b =
+    { x = (a.x + b.x) / 2
+    , y = (a.y + b.y) / 2
+    , z = (a.z + b.z) / 2
+    }
+
+
+
+--
+
+
 type alias Face =
     List Int
 
@@ -147,64 +159,184 @@ matrixLookAt from to =
 
 
 
--- polygon
+--
 
 
 type alias Polygon =
     List Point
 
 
-{-| Assume polygon is convex; otherwise we'd need to loop through all edges,
-not just three. Based on the shoelace formula for area of a simple polygon:
+{-| Based on the shoelace formula for area of a simple polygon (where `area =
+abs (area2 / 2)`).
 
-    area : Polygon -> Float
-    area points =
-        let
-            area2 =
-                foldCycle
-                    (\a b result -> (b.x - a.x) * (b.y + a.y) + result)
-                    0
-                    points
-        in
-        abs (area2 / 2)
-
-In the above, area2 will be positive when points are ordered clockwise,
-zero when collinear, and negative when counterclockwise.
+The value of area2 will be positive when points are ordered clockwise, zero
+when collinear, and negative when counterclockwise.
 
 -}
 polygonIsClockwise : Polygon -> Bool
 polygonIsClockwise points =
-    case points of
-        a :: b :: c :: _ ->
-            0
-                < ((b.x - a.x) * (b.y + a.y))
-                + ((c.x - b.x) * (c.y + b.y))
-                + ((a.x - c.x) * (a.y + c.y))
+    let
+        area2 =
+            foldCycle
+                (\a b result -> (b.x - a.x) * (b.y + a.y) + result)
+                0
+                points
+    in
+    0 < area2
 
-        _ ->
-            False
+
+
+-- super
+
+
+type alias SuperVertex =
+    ( Int, Int )
+
+
+type alias SuperFace =
+    List SuperVertex
+
+
+type alias SuperMesh =
+    { vertices0 : Dict SuperVertex Point
+    , vertices1 : Dict SuperVertex Point
+    , faces : Dict Int SuperFace
+    }
+
+
+superMeshToMesh : SuperMesh -> Mesh
+superMeshToMesh { vertices0, vertices1, faces } =
+    let
+        vuToIndex =
+            vertices1 |> Dict.keys |> List.indexedMap (\i vu -> ( vu, i )) |> Dict.fromList
+
+        vertices =
+            Dict.merge
+                (\_ _ r -> r)
+                (\vu p1 p2 r -> Dict.insert (lookup 0 vuToIndex vu) (midpoint p1 p2) r)
+                (\_ _ r -> r)
+                vertices0
+                vertices1
+                Dict.empty
+    in
+    { vertices = vertices
+    , faces = faces |> Dict.map (\_ -> List.map (lookup 0 vuToIndex))
+    }
+
+
+
+-- truncation
+
+
+truncate : Mesh -> SuperMesh
+truncate { vertices, faces } =
+    let
+        -- existing faces truncated
+        truncatedFaces : List SuperFace
+        truncatedFaces =
+            faces
+                |> Dict.values
+                |> List.map
+                    (foldCycle
+                        (\v u result ->
+                            ( u, v ) :: ( v, u ) :: result
+                        )
+                        []
+                        >> List.reverse
+                    )
+
+        -- new faces at truncated vertices
+        truncatedVertices : List SuperFace
+        truncatedVertices =
+            truncatedFaces
+                -- find all edges with the same source vertex, indexing by source vertex
+                -- for each source vertex, these are the edges that make up the new face
+                |> List.foldl
+                    (\face edges ->
+                        foldCycle
+                            (\(( v1, _ ) as vu1) (( v2, _ ) as vu2) result ->
+                                -- same source vertex
+                                if v1 == v2 then
+                                    Dict.update
+                                        v1
+                                        -- reverse edge order
+                                        (Maybe.withDefault [] >> (::) ( vu2, vu1 ) >> Just)
+                                        result
+
+                                else
+                                    result
+                            )
+                            edges
+                            face
+                    )
+                    Dict.empty
+                |> Dict.values
+                -- use edges to make a path
+                |> List.map toTruncatedVertex
+
+        newVertices : List SuperVertex
+        newVertices =
+            truncatedVertices |> List.concat
+    in
+    { vertices0 =
+        -- original points
+        newVertices
+            |> List.map
+                (\(( v, _ ) as vu) ->
+                    ( vu
+                    , Dict.get v vertices |> Maybe.withDefault vectorZero
+                    )
+                )
+            |> Dict.fromList
+    , vertices1 =
+        -- rectified points
+        newVertices
+            |> List.map
+                (\(( v, u ) as vu) ->
+                    ( vu
+                    , midpoint
+                        (Dict.get v vertices |> Maybe.withDefault vectorZero)
+                        (Dict.get u vertices |> Maybe.withDefault vectorZero)
+                    )
+                )
+            |> Dict.fromList
+    , faces =
+        (truncatedFaces ++ truncatedVertices)
+            |> List.indexedMap Tuple.pair
+            |> Dict.fromList
+    }
+
+
+{-| Given an unordered list of directed edges, create a path starting from an
+arbitrary edge.
+-}
+toTruncatedVertex : List ( a, a ) -> List a
+toTruncatedVertex edges =
+    case edges of
+        ( x, y ) :: rest ->
+            simplePathHelp x rest y [ y, x ]
+
+        [] ->
+            []
+
+
+simplePath : a -> List ( a, a ) -> List a
+simplePath start edges =
+    simplePathHelp start edges start [ start ]
+
+
+simplePathHelp : a -> List ( a, a ) -> a -> List a -> List a
+simplePathHelp start edges prev path =
+    case find (\( x, y ) -> prev == x && y /= start) edges of
+        Just ( _, next ) ->
+            simplePathHelp start edges next (next :: path)
+
+        Nothing ->
+            path |> List.reverse
 
 
 
 -- meshes
-
-
-axes =
-    { vertices =
-        [ ( 1, Point 0 0 0 )
-        , ( 2, Point 1 0 0 )
-        , ( 3, Point 0 1 0 )
-        , ( 4, Point 0 0 1 )
-        ]
-            |> Dict.fromList
-            |> Dict.map (always (vectorScale 100))
-    , faces =
-        [ ( 1, [ 1, 2, 3 ] )
-        , ( 2, [ 1, 3, 4 ] )
-        , ( 3, [ 1, 2, 4 ] )
-        ]
-            |> Dict.fromList
-    }
 
 
 tetrahedron =
@@ -267,10 +399,13 @@ view : Html a
 view =
     let
         cam =
-            matrixLookAt (Vector 2 3 5) vectorZero
+            matrixLookAt (Vector 3 3 5) vectorZero
+
+        ex =
+            cube |> truncate |> superMeshToMesh
 
         mesh =
-            { cube | vertices = cube.vertices |> Dict.map (always (matrixTransform cam)) }
+            { ex | vertices = ex.vertices |> Dict.map (always (matrixTransform cam)) }
     in
     Html.div
         []
@@ -335,3 +470,60 @@ pointsToString =
 pointToString : Point -> String
 pointToString { x, y } =
     String.fromFloat x ++ "," ++ String.fromFloat y
+
+
+
+-- List
+
+
+{-| Left fold over each item with the next, and the last item with the first.
+-}
+foldCycle : (a -> a -> b -> b) -> b -> List a -> b
+foldCycle f2 result list =
+    case list of
+        head :: _ ->
+            foldCycleHelp head f2 result list
+
+        [] ->
+            result
+
+
+foldCycleHelp : a -> (a -> a -> b -> b) -> b -> List a -> b
+foldCycleHelp head f2 result list =
+    case list of
+        x :: ((y :: _) as rest) ->
+            foldCycleHelp head f2 (f2 x y result) rest
+
+        last :: [] ->
+            f2 last head result
+
+        [] ->
+            result
+
+
+find : (a -> Bool) -> List a -> Maybe a
+find pred list =
+    case list of
+        x :: rest ->
+            if pred x then
+                Just x
+
+            else
+                find pred rest
+
+        [] ->
+            Nothing
+
+
+
+-- Dict
+
+
+lookup : v -> Dict comparable v -> comparable -> v
+lookup default dict key =
+    case Dict.get key dict of
+        Just value ->
+            value
+
+        Nothing ->
+            default
