@@ -23,12 +23,17 @@ type alias Point =
     }
 
 
-midpoint : Point -> Point -> Point
-midpoint a b =
-    { x = (a.x + b.x) / 2
-    , y = (a.y + b.y) / 2
-    , z = (a.z + b.z) / 2
+interpolate : Float -> Point -> Point -> Point
+interpolate t a b =
+    { x = a.x + ((b.x - a.x) * t)
+    , y = a.y + ((b.y - a.y) * t)
+    , z = a.z + ((b.z - a.z) * t)
     }
+
+
+midpoint : Point -> Point -> Point
+midpoint =
+    interpolate 0.5
 
 
 
@@ -204,8 +209,8 @@ type alias SuperMesh =
     }
 
 
-superMeshToMesh : SuperMesh -> Mesh
-superMeshToMesh { vertices0, vertices1, faces } =
+superMeshToMesh : Float -> SuperMesh -> Mesh
+superMeshToMesh t { vertices0, vertices1, faces } =
     let
         vuToIndex =
             vertices1 |> Dict.keys |> List.indexedMap (\i vu -> ( vu, i )) |> Dict.fromList
@@ -213,7 +218,7 @@ superMeshToMesh { vertices0, vertices1, faces } =
         vertices =
             Dict.merge
                 (\_ _ r -> r)
-                (\vu p1 p2 r -> Dict.insert (lookup 0 vuToIndex vu) (midpoint p1 p2) r)
+                (\vu p1 p2 r -> Dict.insert (lookup 0 vuToIndex vu) (interpolate t p1 p2) r)
                 (\_ _ r -> r)
                 vertices0
                 vertices1
@@ -339,6 +344,7 @@ simplePathHelp start edges prev path =
 -- meshes
 
 
+tetrahedron : Mesh
 tetrahedron =
     let
         centroid =
@@ -362,6 +368,7 @@ tetrahedron =
     }
 
 
+cube : Mesh
 cube =
     let
         centroid =
@@ -402,7 +409,7 @@ view =
             matrixLookAt (Vector 3 3 5) vectorZero
 
         ex =
-            cube |> truncate |> superMeshToMesh
+            cube |> truncate |> superMeshToMesh (sqrt 2 / (1 + sqrt 2))
 
         mesh =
             { ex | vertices = ex.vertices |> Dict.map (always (matrixTransform cam)) }
