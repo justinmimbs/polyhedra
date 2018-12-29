@@ -350,7 +350,7 @@ isTruncatedVertex face =
 rectify : SuperMesh -> Mesh
 rectify { vertices1, faces } =
     let
-        updatedFaces =
+        targetFaces =
             faces
                 |> Dict.map
                     (\_ face ->
@@ -362,29 +362,63 @@ rectify { vertices1, faces } =
                             -- fuse collapsing edges into (canonically named) vertices
                             face
                                 |> foldCycle
-                                    (\vu1 vu2 r ->
-                                        if isSymmetricPairs vu1 vu2 then
-                                            orderPair vu1 :: r
+                                    (\vu1 vu2 updatedFace ->
+                                        if areSymmetricPairs vu1 vu2 then
+                                            orderPair vu1 :: updatedFace
 
                                         else
-                                            r
+                                            updatedFace
                                     )
                                     []
                                 |> List.reverse
                     )
 
-        uniqueVertices =
+        targetVertices =
+            -- remove duplicates (where symmetry is the equivalence relation)
             vertices1 |> Dict.filter (\vu _ -> isOrderedPair vu)
     in
-    indexVertices uniqueVertices updatedFaces
+    indexVertices targetVertices targetFaces
+
+
+recover : SuperMesh -> Mesh
+recover { vertices0, faces } =
+    let
+        sourceFaces =
+            faces
+                -- remove truncated vertices
+                |> Dict.filter
+                    (\_ face -> not (face |> isTruncatedVertex))
+                -- fuse expanded edges: (x, _) (_, x)
+                |> Dict.map
+                    (\_ face ->
+                        face
+                            |> foldCycle
+                                (\( v, _ ) ( _, u ) updatedFace ->
+                                    if v == u then
+                                        v :: updatedFace
+
+                                    else
+                                        updatedFace
+                                )
+                                []
+                            |> List.reverse
+                    )
+
+        sourceVertices =
+            -- reduce to source vertices
+            vertices0 |> Dict.foldl (\( v, _ ) p -> Dict.insert v p) Dict.empty
+    in
+    { vertices = sourceVertices
+    , faces = sourceFaces
+    }
 
 
 
 -- pair
 
 
-isSymmetricPairs : ( a, a ) -> ( a, a ) -> Bool
-isSymmetricPairs ( a, b ) ( c, d ) =
+areSymmetricPairs : ( a, a ) -> ( a, a ) -> Bool
+areSymmetricPairs ( a, b ) ( c, d ) =
     a == d && b == c
 
 
@@ -491,7 +525,7 @@ view =
 
         ex =
             -- cube |> truncate |> superMeshToMesh (sqrt 2 / (1 + sqrt 2))
-            cube |> truncate |> rectify
+            cube |> truncate |> recover
 
         mesh =
             { ex | vertices = ex.vertices |> Dict.map (always (matrixTransform cam)) }
