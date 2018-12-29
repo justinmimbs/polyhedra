@@ -209,24 +209,34 @@ type alias SuperMesh =
     }
 
 
+indexVertices : Dict SuperVertex Point -> Dict Int SuperFace -> Mesh
+indexVertices vertices faces =
+    let
+        vuToIndex =
+            vertices |> Dict.keys |> List.indexedMap (\i vu -> ( vu, i )) |> Dict.fromList
+    in
+    { vertices =
+        vertices |> Dict.foldl (\vu -> Dict.insert (lookup 0 vuToIndex vu)) Dict.empty
+    , faces =
+        faces |> Dict.map (\_ -> List.map (lookup 0 vuToIndex))
+    }
+
+
 superMeshToMesh : Float -> SuperMesh -> Mesh
 superMeshToMesh t { vertices0, vertices1, faces } =
     let
-        vuToIndex =
-            vertices1 |> Dict.keys |> List.indexedMap (\i vu -> ( vu, i )) |> Dict.fromList
-
-        vertices =
-            Dict.merge
-                (\_ _ r -> r)
-                (\vu p1 p2 r -> Dict.insert (lookup 0 vuToIndex vu) (interpolate t p1 p2) r)
-                (\_ _ r -> r)
-                vertices0
-                vertices1
-                Dict.empty
+        interpolatedVertices =
+            vertices0
+                |> Dict.map
+                    (\vu p0 ->
+                        let
+                            p1 =
+                                vertices1 |> Dict.get vu |> Maybe.withDefault vectorZero
+                        in
+                        interpolate t p0 p1
+                    )
     in
-    { vertices = vertices
-    , faces = faces |> Dict.map (\_ -> List.map (lookup 0 vuToIndex))
-    }
+    indexVertices interpolatedVertices faces
 
 
 
@@ -325,6 +335,77 @@ toTruncatedVertex edges =
             []
 
 
+{-| Does every supervertex `(v, u)` have the same source vertex `v`?
+-}
+isTruncatedVertex : SuperFace -> Bool
+isTruncatedVertex face =
+    case face of
+        ( v1, _ ) :: rest ->
+            rest |> List.all (\( vn, _ ) -> vn == v1)
+
+        _ ->
+            False
+
+
+rectify : SuperMesh -> Mesh
+rectify { vertices1, faces } =
+    let
+        updatedFaces =
+            faces
+                |> Dict.map
+                    (\_ face ->
+                        if face |> isTruncatedVertex then
+                            -- rename each vertex with canonical name
+                            face |> List.map orderPair
+
+                        else
+                            -- fuse collapsing edges into (canonically named) vertices
+                            face
+                                |> foldCycle
+                                    (\vu1 vu2 r ->
+                                        if isSymmetricPairs vu1 vu2 then
+                                            orderPair vu1 :: r
+
+                                        else
+                                            r
+                                    )
+                                    []
+                                |> List.reverse
+                    )
+
+        uniqueVertices =
+            vertices1 |> Dict.filter (\vu _ -> isOrderedPair vu)
+    in
+    indexVertices uniqueVertices updatedFaces
+
+
+
+-- pair
+
+
+isSymmetricPairs : ( a, a ) -> ( a, a ) -> Bool
+isSymmetricPairs ( a, b ) ( c, d ) =
+    a == d && b == c
+
+
+isOrderedPair : ( comparable, comparable ) -> Bool
+isOrderedPair ( a, b ) =
+    a < b
+
+
+orderPair : ( comparable, comparable ) -> ( comparable, comparable )
+orderPair (( a, b ) as ab) =
+    if b < a then
+        ( b, a )
+
+    else
+        ab
+
+
+
+-- graph
+
+
 simplePath : a -> List ( a, a ) -> List a
 simplePath start edges =
     simplePathHelp start edges start [ start ]
@@ -409,7 +490,8 @@ view =
             matrixLookAt (Vector 3 3 5) vectorZero
 
         ex =
-            cube |> truncate |> superMeshToMesh (sqrt 2 / (1 + sqrt 2))
+            -- cube |> truncate |> superMeshToMesh (sqrt 2 / (1 + sqrt 2))
+            cube |> truncate |> rectify
 
         mesh =
             { ex | vertices = ex.vertices |> Dict.map (always (matrixTransform cam)) }
