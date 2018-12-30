@@ -190,6 +190,18 @@ polygonIsClockwise points =
     0 < area2
 
 
+{-| Assume regular polygon and take arithmetic mean of points.
+-}
+polygonCenter : Polygon -> Point
+polygonCenter points =
+    case List.length points of
+        0 ->
+            vectorZero
+
+        n ->
+            points |> List.foldl vectorAdd vectorZero |> vectorScale (1 / toFloat n)
+
+
 
 -- super
 
@@ -222,8 +234,8 @@ indexVertices vertices faces =
     }
 
 
-superMeshToMesh : Float -> SuperMesh -> Mesh
-superMeshToMesh t { vertices0, vertices1, faces } =
+reify : Float -> SuperMesh -> Mesh
+reify t { vertices0, vertices1, faces } =
     let
         interpolatedVertices =
             vertices0
@@ -380,8 +392,8 @@ rectify { vertices1, faces } =
     indexVertices targetVertices targetFaces
 
 
-recover : SuperMesh -> Mesh
-recover { vertices0, faces } =
+untruncate : SuperMesh -> Mesh
+untruncate { vertices0, faces } =
     let
         sourceFaces =
             faces
@@ -410,6 +422,127 @@ recover { vertices0, faces } =
     in
     { vertices = sourceVertices
     , faces = sourceFaces
+    }
+
+
+bitruncate : Mesh -> SuperMesh
+bitruncate polyhedron =
+    let
+        truncated =
+            truncate polyhedron
+
+        rectified =
+            rectify truncated
+
+        ( collapsing, expanding ) =
+            truncated.faces
+                |> Dict.foldl
+                    (\f superface ( col, exp ) ->
+                        let
+                            face =
+                                lookup [] rectified.faces f
+                        in
+                        if superface |> isTruncatedVertex then
+                            ( col, exp |> Dict.insert f face )
+
+                        else
+                            ( col |> Dict.insert f face, exp )
+                    )
+                    ( Dict.empty, Dict.empty )
+
+        -- each vertex is incident to two collapsing faces
+        vToPair : Dict Int ( Int, Int )
+        vToPair =
+            -- order with collapsing face first
+            collapsing
+                -- indexFacesByVertex
+                |> Dict.foldl
+                    (\f face result ->
+                        List.foldl
+                            (\v -> Dict.update v (Maybe.withDefault [] >> (::) f >> Just))
+                            result
+                            face
+                    )
+                    Dict.empty
+                |> Dict.map
+                    -- pairFromList
+                    (\_ list ->
+                        case list of
+                            [ f1, f2 ] ->
+                                orderPair ( f1, f2 )
+
+                            _ ->
+                                ( 0, 0 )
+                    )
+
+        -- rename vertices
+        collapsingFaces =
+            collapsing
+                |> Dict.map
+                    (\f face ->
+                        face
+                            |> List.map
+                                (\v ->
+                                    let
+                                        ( f1, f2 ) =
+                                            lookup ( 0, 0 ) vToPair v
+                                    in
+                                    -- order with collapsing face first
+                                    if f == f1 then
+                                        ( f1, f2 )
+
+                                    else
+                                        ( f2, f1 )
+                                )
+                    )
+
+        expandingFaces =
+            expanding
+                |> Dict.map
+                    (\f face ->
+                        face
+                            |> List.map
+                                (lookup ( 0, 0 ) vToPair)
+                            |> foldCycle
+                                (\( a, b ) ( c, d ) expandedFace ->
+                                    if a == c || a == d then
+                                        ( a, b ) :: ( b, a ) :: expandedFace
+
+                                    else
+                                        ( b, a ) :: ( a, b ) :: expandedFace
+                                )
+                                []
+                            |> List.reverse
+                    )
+
+        pairToV =
+            vToPair |> Dict.foldl (\v vu -> Dict.insert vu v) Dict.empty
+
+        faceToCenter =
+            rectified.faces |> Dict.map (\_ -> faceToPolygon rectified.vertices >> polygonCenter)
+
+        newVertices =
+            collapsingFaces |> Dict.values |> List.concat
+    in
+    { vertices0 =
+        newVertices
+            |> List.map
+                (\(( f, _ ) as vu) ->
+                    ( vu
+                    , lookup vectorZero faceToCenter f
+                    )
+                )
+            |> Dict.fromList
+    , vertices1 =
+        newVertices
+            |> List.map
+                (\vu ->
+                    ( vu
+                    , orderPair vu |> lookup 0 pairToV |> lookup vectorZero rectified.vertices
+                    )
+                )
+            |> Dict.fromList
+    , faces = Dict.union collapsingFaces expandingFaces
     }
 
 
@@ -524,8 +657,8 @@ view =
             matrixLookAt (Vector 3 3 5) vectorZero
 
         ex =
-            -- cube |> truncate |> superMeshToMesh (sqrt 2 / (1 + sqrt 2))
-            cube |> truncate |> recover
+            -- cube |> truncate |> reify (sqrt 2 / (1 + sqrt 2))
+            cube |> bitruncate |> reify 0.5
 
         mesh =
             { ex | vertices = ex.vertices |> Dict.map (always (matrixTransform cam)) }
