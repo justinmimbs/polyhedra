@@ -4,5 +4,5 @@ polygon {
 }
 
 polygon:nth-child(3n+0) { fill: rgba(0, 200, 255, 0.9); }
-polygon:nth-child(3n+1) { fill: rgba(255, 255, 0, 0.9); }
+polygon:nth-child(3n+1) { fill: rgba(255, 240, 0, 0.9); }
 polygon:nth-child(3n+2) { fill: rgba(255, 0, 200, 0.9); }

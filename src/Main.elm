@@ -3,6 +3,7 @@ module Main exposing (main)
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes
+import Set exposing (Set)
 import Svg exposing (Svg)
 import Svg.Attributes
 
@@ -434,34 +435,30 @@ bitruncate polyhedron =
         rectified =
             rectify truncated
 
-        ( collapsing, expanding ) =
+        collapsing : Set Int
+        collapsing =
             truncated.faces
                 |> Dict.foldl
-                    (\f superface ( col, exp ) ->
-                        let
-                            face =
-                                lookup [] rectified.faces f
-                        in
+                    (\f superface col ->
                         if superface |> isTruncatedVertex then
-                            ( col, exp |> Dict.insert f face )
+                            col
 
                         else
-                            ( col |> Dict.insert f face, exp )
+                            col |> Set.insert f
                     )
-                    ( Dict.empty, Dict.empty )
+                    Set.empty
 
-        -- each vertex is incident to two collapsing faces
+        -- each vertex is incident to exactly two collapsing faces
         vToPair : Dict Int ( Int, Int )
         vToPair =
-            -- order with collapsing face first
             collapsing
                 -- indexFacesByVertex
-                |> Dict.foldl
-                    (\f face result ->
+                |> Set.foldl
+                    (\f result ->
                         List.foldl
                             (\v -> Dict.update v (Maybe.withDefault [] >> (::) f >> Just))
                             result
-                            face
+                            (lookup [] rectified.faces f)
                     )
                     Dict.empty
                 |> Dict.map
@@ -476,43 +473,41 @@ bitruncate polyhedron =
                     )
 
         -- rename vertices
-        collapsingFaces =
-            collapsing
+        updatedFaces : Dict Int SuperFace
+        updatedFaces =
+            rectified.faces
                 |> Dict.map
                     (\f face ->
-                        face
-                            |> List.map
-                                (\v ->
-                                    let
-                                        ( f1, f2 ) =
-                                            lookup ( 0, 0 ) vToPair v
-                                    in
-                                    -- order with collapsing face first
-                                    if f == f1 then
-                                        ( f1, f2 )
+                        let
+                            superface =
+                                face |> List.map (lookup ( 0, 0 ) vToPair)
+                        in
+                        if collapsing |> Set.member f then
+                            -- collapsing face
+                            superface
+                                |> List.map
+                                    (\( v, u ) ->
+                                        -- order each pair with collapsing face first
+                                        if v == f then
+                                            ( v, u )
 
-                                    else
-                                        ( f2, f1 )
-                                )
-                    )
+                                        else
+                                            ( u, v )
+                                    )
 
-        expandingFaces =
-            expanding
-                |> Dict.map
-                    (\f face ->
-                        face
-                            |> List.map
-                                (lookup ( 0, 0 ) vToPair)
-                            |> foldCycle
-                                (\( a, b ) ( c, d ) expandedFace ->
-                                    if a == c || a == d then
-                                        ( a, b ) :: ( b, a ) :: expandedFace
+                        else
+                            -- expanding face
+                            superface
+                                |> foldCycle
+                                    (\( a, b ) ( c, d ) expandedFace ->
+                                        if a == c || a == d then
+                                            ( a, b ) :: ( b, a ) :: expandedFace
 
-                                    else
-                                        ( b, a ) :: ( a, b ) :: expandedFace
-                                )
-                                []
-                            |> List.reverse
+                                        else
+                                            ( b, a ) :: ( a, b ) :: expandedFace
+                                    )
+                                    []
+                                |> List.reverse
                     )
 
         pairToV =
@@ -522,9 +517,10 @@ bitruncate polyhedron =
             rectified.faces |> Dict.map (\_ -> faceToPolygon rectified.vertices >> polygonCenter)
 
         newVertices =
-            collapsingFaces |> Dict.values |> List.concat
+            updatedFaces |> Dict.filter (\f _ -> Set.member f collapsing) |> Dict.values |> List.concat
     in
     { vertices0 =
+        -- dual points
         newVertices
             |> List.map
                 (\(( f, _ ) as vu) ->
@@ -534,6 +530,7 @@ bitruncate polyhedron =
                 )
             |> Dict.fromList
     , vertices1 =
+        -- rectified points
         newVertices
             |> List.map
                 (\vu ->
@@ -542,7 +539,7 @@ bitruncate polyhedron =
                     )
                 )
             |> Dict.fromList
-    , faces = Dict.union collapsingFaces expandingFaces
+    , faces = updatedFaces
     }
 
 
