@@ -51,6 +51,44 @@ type alias Mesh =
     }
 
 
+mergeCoincidentVertices : Mesh -> Mesh
+mergeCoincidentVertices ({ vertices, faces } as mesh) =
+    let
+        points : Dict ( Float, Float, Float ) Int
+        points =
+            vertices |> Dict.foldl (\v { x, y, z } -> Dict.insert ( x, y, z ) v) Dict.empty
+    in
+    if Dict.size vertices == Dict.size points then
+        mesh
+
+    else
+        let
+            vToU =
+                vertices |> Dict.map (\v { x, y, z } -> lookup 0 points ( x, y, z ))
+        in
+        { vertices =
+            points |> Dict.foldl (\( x, y, z ) u -> Dict.insert u (Point x y z)) Dict.empty
+        , faces =
+            faces
+                |> Dict.map
+                    (\_ face ->
+                        face
+                            |> List.map (lookup 0 vToU)
+                            -- remove consecutive duplicates
+                            |> foldCycle
+                                (\a b r ->
+                                    if a == b then
+                                        r
+
+                                    else
+                                        a :: r
+                                )
+                                []
+                            |> List.reverse
+                    )
+        }
+
+
 
 --
 
@@ -248,8 +286,15 @@ reify t { vertices0, vertices1, faces } =
                         in
                         interpolate t p0 p1
                     )
+
+        mesh =
+            indexVertices interpolatedVertices faces
     in
-    indexVertices interpolatedVertices faces
+    if t == 1 || t == 0 then
+        mesh |> mergeCoincidentVertices
+
+    else
+        mesh
 
 
 
@@ -360,72 +405,6 @@ isTruncatedVertex face =
             False
 
 
-rectify : SuperMesh -> Mesh
-rectify { vertices1, faces } =
-    let
-        targetFaces =
-            faces
-                |> Dict.map
-                    (\_ face ->
-                        if face |> isTruncatedVertex then
-                            -- rename each vertex with canonical name
-                            face |> List.map orderPair
-
-                        else
-                            -- fuse collapsing edges into (canonically named) vertices
-                            face
-                                |> foldCycle
-                                    (\vu1 vu2 updatedFace ->
-                                        if areSymmetricPairs vu1 vu2 then
-                                            orderPair vu1 :: updatedFace
-
-                                        else
-                                            updatedFace
-                                    )
-                                    []
-                                |> List.reverse
-                    )
-
-        targetVertices =
-            -- remove duplicates (where symmetry is the equivalence relation)
-            vertices1 |> Dict.filter (\vu _ -> isOrderedPair vu)
-    in
-    indexVertices targetVertices targetFaces
-
-
-untruncate : SuperMesh -> Mesh
-untruncate { vertices0, faces } =
-    let
-        sourceFaces =
-            faces
-                -- remove truncated vertices
-                |> Dict.filter
-                    (\_ face -> not (face |> isTruncatedVertex))
-                -- fuse expanded edges: (x, _) (_, x)
-                |> Dict.map
-                    (\_ face ->
-                        face
-                            |> foldCycle
-                                (\( v, _ ) ( _, u ) updatedFace ->
-                                    if v == u then
-                                        v :: updatedFace
-
-                                    else
-                                        updatedFace
-                                )
-                                []
-                            |> List.reverse
-                    )
-
-        sourceVertices =
-            -- reduce to source vertices
-            vertices0 |> Dict.foldl (\( v, _ ) p -> Dict.insert v p) Dict.empty
-    in
-    { vertices = sourceVertices
-    , faces = sourceFaces
-    }
-
-
 bitruncate : Mesh -> SuperMesh
 bitruncate polyhedron =
     let
@@ -433,7 +412,7 @@ bitruncate polyhedron =
             truncate polyhedron
 
         rectified =
-            rectify truncated
+            reify 1 truncated
 
         collapsing : Set Int
         collapsing =
@@ -520,22 +499,22 @@ bitruncate polyhedron =
             updatedFaces |> Dict.filter (\f _ -> Set.member f collapsing) |> Dict.values |> List.concat
     in
     { vertices0 =
-        -- dual points
-        newVertices
-            |> List.map
-                (\(( f, _ ) as vu) ->
-                    ( vu
-                    , lookup vectorZero faceToCenter f
-                    )
-                )
-            |> Dict.fromList
-    , vertices1 =
         -- rectified points
         newVertices
             |> List.map
                 (\vu ->
                     ( vu
                     , orderPair vu |> lookup 0 pairToV |> lookup vectorZero rectified.vertices
+                    )
+                )
+            |> Dict.fromList
+    , vertices1 =
+        -- dual points
+        newVertices
+            |> List.map
+                (\(( f, _ ) as vu) ->
+                    ( vu
+                    , lookup vectorZero faceToCenter f
                     )
                 )
             |> Dict.fromList
@@ -655,7 +634,7 @@ view =
 
         ex =
             -- cube |> truncate |> reify (sqrt 2 / (1 + sqrt 2))
-            cube |> bitruncate |> reify 0.5
+            cube |> bitruncate |> reify 0.2
 
         mesh =
             { ex | vertices = ex.vertices |> Dict.map (always (matrixTransform cam)) }
