@@ -661,6 +661,18 @@ view =
             -- cube |> truncate |> reify (sqrt 2 / (1 + sqrt 2))
             cube |> bitruncate |> reify 0.2
 
+        faceClass =
+            let
+                originalFaces =
+                    cube.faces |> Dict.keys |> Set.fromList
+            in
+            \f ->
+                if Set.member f originalFaces then
+                    "color1"
+
+                else
+                    "color2"
+
         mesh =
             { ex | vertices = ex.vertices |> Dict.map (always (matrixTransform cam)) }
     in
@@ -678,23 +690,33 @@ view =
             [ Svg.g
                 [ Svg.Attributes.transform "scale(1, -1) translate(250, -250) "
                 ]
-                [ viewMesh mesh
+                [ viewMesh faceClass mesh
                 ]
             ]
         ]
 
 
-viewMesh : Mesh -> Svg a
-viewMesh { vertices, faces } =
+viewMesh : (Int -> String) -> Mesh -> Svg a
+viewMesh faceClass { vertices, faces } =
     let
         ( frontFaces, backFaces ) =
             faces
-                |> Dict.values
-                |> List.map (faceToPolygon vertices)
-                |> List.partition polygonIsClockwise
-                |> Tuple.mapBoth
-                    (List.map (viewPolygon "front"))
-                    (List.map (viewPolygon "back"))
+                |> Dict.foldl
+                    (\f face ( fronts, backs ) ->
+                        let
+                            polygon =
+                                face |> faceToPolygon vertices
+
+                            polygonView =
+                                polygon |> viewPolygon (faceClass f)
+                        in
+                        if polygon |> polygonIsClockwise then
+                            ( polygonView :: fronts, backs )
+
+                        else
+                            ( fronts, polygonView :: backs )
+                    )
+                    ( [], [] )
     in
     Svg.g
         []

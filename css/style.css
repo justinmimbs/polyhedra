@@ -1,8 +1,8 @@
 polygon {
-    stroke: black;
+    stroke: rgba(0, 0, 0, 0.6);
     fill: none;
 }
 
-polygon:nth-child(3n+0) { fill: rgba(0, 200, 255, 0.9); }
-polygon:nth-child(3n+1) { fill: rgba(255, 240, 0, 0.9); }
-polygon:nth-child(3n+2) { fill: rgba(255, 0, 200, 0.9); }
+.color1 { fill: rgba(80, 200, 240, 0.9); }
+.color2 { fill: rgba(255, 90, 160, 0.9); }
+.color3 { fill: rgba(255, 190, 70, 0.9); }
