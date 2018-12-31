@@ -316,28 +316,32 @@ reify t { vertices0, vertices1, faces } =
 truncate : Mesh -> SuperMesh
 truncate { vertices, faces } =
     let
+        newFaceBaseIndex : Int
+        newFaceBaseIndex =
+            (faces |> Dict.keys |> List.maximum |> Maybe.withDefault 0) + 1
+
         -- existing faces truncated
-        truncatedFaces : List SuperFace
+        truncatedFaces : Dict Int SuperFace
         truncatedFaces =
             faces
-                |> Dict.values
-                |> List.map
-                    (foldCycle
-                        (\v u result ->
-                            ( u, v ) :: ( v, u ) :: result
-                        )
-                        []
-                        >> List.reverse
+                |> Dict.map
+                    (\_ ->
+                        foldCycle
+                            (\v u result ->
+                                ( u, v ) :: ( v, u ) :: result
+                            )
+                            []
+                            >> List.reverse
                     )
 
         -- new faces at truncated vertices
-        truncatedVertices : List SuperFace
+        truncatedVertices : Dict Int SuperFace
         truncatedVertices =
             truncatedFaces
                 -- find all edges with the same source vertex, indexing by source vertex
                 -- for each source vertex, these are the edges that make up the new face
-                |> List.foldl
-                    (\face edges ->
+                |> Dict.foldl
+                    (\_ face vertexEdges ->
                         foldCycle
                             (\(( v1, _ ) as vu1) (( v2, _ ) as vu2) result ->
                                 -- same source vertex
@@ -351,17 +355,23 @@ truncate { vertices, faces } =
                                 else
                                     result
                             )
-                            edges
+                            vertexEdges
                             face
                     )
                     Dict.empty
                 |> Dict.values
-                -- use edges to make a path
-                |> List.map toTruncatedVertex
+                -- use edges to make a path for each new face
+                |> List.indexedMap
+                    (\i edges ->
+                        ( newFaceBaseIndex + i
+                        , edges |> toTruncatedVertex
+                        )
+                    )
+                |> Dict.fromList
 
         newVertices : List SuperVertex
         newVertices =
-            truncatedVertices |> List.concat
+            truncatedVertices |> Dict.values |> List.concat
     in
     { vertices0 =
         -- original points
@@ -386,9 +396,7 @@ truncate { vertices, faces } =
                 )
             |> Dict.fromList
     , faces =
-        (truncatedFaces ++ truncatedVertices)
-            |> List.indexedMap Tuple.pair
-            |> Dict.fromList
+        Dict.union truncatedFaces truncatedVertices
     }
 
 
@@ -420,9 +428,11 @@ isTruncatedVertex face =
 bitruncate : Mesh -> SuperMesh
 bitruncate polyhedron =
     let
+        truncated : SuperMesh
         truncated =
             truncate polyhedron
 
+        rectified : Mesh
         rectified =
             reify 1 truncated
 
@@ -501,12 +511,15 @@ bitruncate polyhedron =
                                 |> List.reverse
                     )
 
+        pairToV : Dict ( Int, Int ) Int
         pairToV =
             vToPair |> Dict.foldl (\v vu -> Dict.insert vu v) Dict.empty
 
+        faceToCenter : Dict Int Point
         faceToCenter =
             rectified.faces |> Dict.map (\_ -> faceToPolygon rectified.vertices >> polygonCenter)
 
+        newVertices : List SuperVertex
         newVertices =
             updatedFaces |> Dict.filter (\f _ -> Set.member f collapsing) |> Dict.values |> List.concat
     in
