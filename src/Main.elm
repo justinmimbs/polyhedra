@@ -17,82 +17,6 @@ main =
 --
 
 
-type alias Point =
-    { x : Float
-    , y : Float
-    , z : Float
-    }
-
-
-interpolate : Float -> Point -> Point -> Point
-interpolate t a b =
-    { x = a.x + ((b.x - a.x) * t)
-    , y = a.y + ((b.y - a.y) * t)
-    , z = a.z + ((b.z - a.z) * t)
-    }
-
-
-midpoint : Point -> Point -> Point
-midpoint =
-    interpolate 0.5
-
-
-
---
-
-
-type alias Face =
-    List Int
-
-
-type alias Mesh =
-    { vertices : Dict Int Point
-    , faces : Dict Int Face
-    }
-
-
-mergeCoincidentVertices : Mesh -> Mesh
-mergeCoincidentVertices ({ vertices, faces } as mesh) =
-    let
-        points : Dict ( Float, Float, Float ) Int
-        points =
-            vertices |> Dict.foldl (\v { x, y, z } -> Dict.insert ( x, y, z ) v) Dict.empty
-    in
-    if Dict.size vertices == Dict.size points then
-        mesh
-
-    else
-        let
-            vToU =
-                vertices |> Dict.map (\v { x, y, z } -> lookup 0 points ( x, y, z ))
-        in
-        { vertices =
-            points |> Dict.foldl (\( x, y, z ) u -> Dict.insert u (Point x y z)) Dict.empty
-        , faces =
-            faces
-                |> Dict.map
-                    (\_ face ->
-                        face
-                            |> List.map (lookup 0 vToU)
-                            -- remove consecutive duplicates
-                            |> foldCycle
-                                (\a b r ->
-                                    if a == b then
-                                        r
-
-                                    else
-                                        a :: r
-                                )
-                                []
-                            |> List.reverse
-                    )
-        }
-
-
-
---
-
-
 type alias Vector =
     { x : Float
     , y : Float
@@ -206,6 +130,30 @@ matrixLookAt from to =
 --
 
 
+type alias Point =
+    { x : Float
+    , y : Float
+    , z : Float
+    }
+
+
+interpolate : Float -> Point -> Point -> Point
+interpolate t a b =
+    { x = a.x + ((b.x - a.x) * t)
+    , y = a.y + ((b.y - a.y) * t)
+    , z = a.z + ((b.z - a.z) * t)
+    }
+
+
+midpoint : Point -> Point -> Point
+midpoint =
+    interpolate 0.5
+
+
+
+--
+
+
 type alias Polygon =
     List Point
 
@@ -239,6 +187,70 @@ polygonCenter points =
 
         n ->
             points |> List.foldl vectorAdd vectorZero |> vectorScale (1 / toFloat n)
+
+
+
+--
+
+
+type alias Face =
+    List Int
+
+
+faceToPolygon : Dict Int Point -> Face -> Polygon
+faceToPolygon vertices face =
+    List.map
+        (lookup vectorZero vertices)
+        face
+
+
+
+--
+
+
+type alias Mesh =
+    { vertices : Dict Int Point
+    , faces : Dict Int Face
+    }
+
+
+mergeCoincidentVertices : Mesh -> Mesh
+mergeCoincidentVertices ({ vertices, faces } as mesh) =
+    let
+        points : Dict ( Float, Float, Float ) Int
+        points =
+            vertices |> Dict.foldl (\v { x, y, z } -> Dict.insert ( x, y, z ) v) Dict.empty
+    in
+    if Dict.size vertices == Dict.size points then
+        mesh
+
+    else
+        let
+            vertexToMerged : Dict Int Int
+            vertexToMerged =
+                vertices |> Dict.map (\v { x, y, z } -> lookup 0 points ( x, y, z ))
+        in
+        { vertices =
+            points |> Dict.foldl (\( x, y, z ) u -> Dict.insert u (Point x y z)) Dict.empty
+        , faces =
+            faces
+                |> Dict.map
+                    (\_ face ->
+                        face
+                            |> List.map (lookup 0 vertexToMerged)
+                            -- remove consecutive duplicates
+                            |> foldCycle
+                                (\a b result ->
+                                    if a == b then
+                                        result
+
+                                    else
+                                        a :: result
+                                )
+                                []
+                            |> List.reverse
+                    )
+        }
 
 
 
@@ -565,7 +577,7 @@ simplePathHelp start edges prev path =
 
 
 
--- meshes
+-- mesh constants
 
 
 tetrahedron : Mesh
@@ -674,13 +686,6 @@ viewMesh { vertices, faces } =
     Svg.g
         []
         (backFaces ++ frontFaces)
-
-
-faceToPolygon : Dict Int Point -> Face -> Polygon
-faceToPolygon vertices face =
-    List.map
-        (\v -> Dict.get v vertices |> Maybe.withDefault vectorZero)
-        face
 
 
 viewPolygon : String -> Polygon -> Svg a
