@@ -90,11 +90,6 @@ vectorSubtract a b =
     }
 
 
-vectorDirection : Point -> Point -> Vector
-vectorDirection a b =
-    vectorSubtract b a |> vectorNormalize
-
-
 
 --
 
@@ -176,6 +171,16 @@ midpoint =
     interpolate 0.5
 
 
+direction : Point -> Point -> Vector
+direction a b =
+    vectorSubtract b a |> vectorNormalize
+
+
+distanceSquared : Point -> Point -> Float
+distanceSquared a b =
+    (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 + (a.z - b.z) ^ 2
+
+
 
 --
 
@@ -235,8 +240,8 @@ faceNormal points =
     case points of
         a :: b :: c :: _ ->
             vectorCross
-                (vectorDirection b a)
-                (vectorDirection b c)
+                (direction b a)
+                (direction b c)
 
         _ ->
             Vector 0 1 0
@@ -255,27 +260,43 @@ type alias Mesh =
 mergeCoincidentVertices : Mesh -> Mesh
 mergeCoincidentVertices ({ vertices, faces } as mesh) =
     let
-        points : Dict ( Float, Float, Float ) Int
-        points =
-            vertices |> Dict.foldl (\v { x, y, z } -> Dict.insert ( x, y, z ) v) Dict.empty
+        -- { points : List ( Point, Int ) -- assoc list; maps each unique point to a canonical vertex
+        -- , vertexMap : Dict Int Int -- maps every vertex to its canonical vertex
+        -- }
+        { points, vertexMap } =
+            vertices
+                |> Dict.foldl
+                    (\v p r ->
+                        case find (Tuple.first >> pointEqual p) r.points of
+                            Nothing ->
+                                { points = ( p, v ) :: r.points
+                                , vertexMap = r.vertexMap |> Dict.insert v v
+                                }
+
+                            Just ( _, u ) ->
+                                { points = r.points
+                                , vertexMap = r.vertexMap |> Dict.insert v u
+                                }
+                    )
+                    { points = [], vertexMap = Dict.empty }
     in
-    if Dict.size vertices == Dict.size points then
+    if Dict.size vertices == List.length points then
         mesh
 
     else
         let
-            vertexToMerged : Dict Int Int
-            vertexToMerged =
-                vertices |> Dict.map (\v { x, y, z } -> lookup 0 points ( x, y, z ))
+            usedVertices : Set Int
+            usedVertices =
+                points |> List.map Tuple.second |> Set.fromList
         in
         { vertices =
-            points |> Dict.foldl (\( x, y, z ) u -> Dict.insert u (Point x y z)) Dict.empty
+            vertices |> Dict.filter (\v _ -> Set.member v usedVertices)
         , faces =
             faces
                 |> Dict.map
                     (\_ face ->
                         face
-                            |> List.map (lookup 0 vertexToMerged)
+                            |> List.map (lookup 0 vertexMap)
                             -- remove consecutive duplicates
                             |> foldCycle
                                 (\a b result ->
@@ -289,6 +310,11 @@ mergeCoincidentVertices ({ vertices, faces } as mesh) =
                             |> List.reverse
                     )
         }
+
+
+pointEqual : Point -> Point -> Bool
+pointEqual a b =
+    distanceSquared a b <= 0.0000001
 
 
 
