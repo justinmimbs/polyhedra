@@ -718,7 +718,7 @@ view =
                 |> matrixScale (140 / radius)
 
         lightDirection =
-            Vector -3 -6 1 |> matrixMultiply cameraMatrix |> vectorNormalize |> Debug.log "l"
+            Vector -3 -6 1 |> matrixMultiply cameraMatrix |> vectorNormalize
 
         meshTransformed =
             { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiply cameraMatrix) }
@@ -754,21 +754,32 @@ viewMesh lightDirection faceClass { vertices, faces } =
                             polygon =
                                 face |> faceToPolygon vertices
 
-                            polygonView =
+                            faceView =
                                 polygon |> viewPolygon [] (faceClass f)
                         in
                         if polygon |> polygonIsClockwise then
                             let
+                                -- range [-1, 1], where -1 is facing toward light, 0 is perpendicular, and 1 is facing away
                                 alpha =
-                                    (0 - (faceNormal polygon |> vectorDot lightDirection)) ^ 2 |> Debug.log "a"
+                                    vectorDot lightDirection (faceNormal polygon)
 
-                                lumaFace =
-                                    viewPolygon [ Svg.Attributes.opacity (String.fromFloat alpha) ] "luma" polygon
+                                lumaView =
+                                    if alpha <= 0 then
+                                        viewPolygon
+                                            [ Svg.Attributes.opacity <| String.fromFloat ((0 - alpha) ^ 2) ]
+                                            "light"
+                                            polygon
+
+                                    else
+                                        viewPolygon
+                                            [ Svg.Attributes.opacity <| String.fromFloat (alpha ^ 2) ]
+                                            "dark"
+                                            polygon
                             in
-                            ( backs, polygonView :: fronts, lumaFace :: luma )
+                            ( backs, faceView :: fronts, lumaView :: luma )
 
                         else
-                            ( polygonView :: backs, fronts, luma )
+                            ( faceView :: backs, fronts, luma )
                     )
                     ( [], [], [] )
     in
