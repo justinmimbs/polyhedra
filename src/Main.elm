@@ -42,6 +42,11 @@ vectorLength { x, y, z } =
     sqrt (x * x + y * y + z * z)
 
 
+vectorLengthSquared : Vector -> Float
+vectorLengthSquared { x, y, z } =
+    x * x + y * y + z * z
+
+
 vectorNormalize : Vector -> Vector
 vectorNormalize ({ x, y, z } as v) =
     let
@@ -99,8 +104,17 @@ matrixIdentity =
     }
 
 
-matrixTransform : Matrix -> Vector -> Vector
-matrixTransform { a, b, c, t } { x, y, z } =
+matrixScale : Float -> Matrix -> Matrix
+matrixScale factor { a, b, c, t } =
+    { a = a |> vectorScale factor
+    , b = b |> vectorScale factor
+    , c = c |> vectorScale factor
+    , t = t |> vectorScale factor
+    }
+
+
+matrixMultiply : Matrix -> Vector -> Vector
+matrixMultiply { a, b, c, t } { x, y, z } =
     { x = x * a.x + y * b.x + z * c.x + t.x
     , y = x * a.y + y * b.y + z * c.y + t.y
     , z = x * a.z + y * b.z + z * c.z + t.z
@@ -606,7 +620,7 @@ tetrahedron =
         , ( 4, Point 0.5 (sqrt (2 / 3)) (sqrt 0.75 / 3) )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ v -> vectorSubtract v centroid |> vectorScale 200)
+            |> Dict.map (\_ v -> vectorSubtract v centroid |> vectorScale 100)
     , faces =
         [ ( 4, [ 3, 2, 1 ] )
         , ( 2, [ 4, 2, 3 ] )
@@ -634,7 +648,7 @@ cube =
         , ( 8, Point 1 1 1 )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ v -> vectorSubtract v centroid |> vectorScale 150)
+            |> Dict.map (\_ v -> vectorSubtract v centroid |> vectorScale 100)
     , faces =
         [ ( 1, [ 1, 5, 7, 3 ] )
         , ( 2, [ 1, 3, 4, 2 ] )
@@ -654,12 +668,14 @@ cube =
 view : Html a
 view =
     let
-        cam =
-            matrixLookAt (Vector 3 3 5) vectorZero
-
-        ex =
+        mesh =
             -- cube |> truncate |> reify (sqrt 2 / (1 + sqrt 2))
             cube |> bitruncate |> reify 0.2
+
+        radius =
+            mesh.vertices
+                |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
+                |> sqrt
 
         faceClass =
             let
@@ -673,8 +689,12 @@ view =
                 else
                     "color2"
 
-        mesh =
-            { ex | vertices = ex.vertices |> Dict.map (always (matrixTransform cam)) }
+        cameraMatrix =
+            matrixLookAt (Vector 3 3 5) vectorZero
+                |> matrixScale (140 / radius)
+
+        meshTransformed =
+            { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiply cameraMatrix) }
     in
     Html.div
         []
@@ -690,7 +710,7 @@ view =
             [ Svg.g
                 [ Svg.Attributes.transform "scale(1, -1) translate(250, -250) "
                 ]
-                [ viewMesh faceClass mesh
+                [ viewMesh faceClass meshTransformed
                 ]
             ]
         ]
