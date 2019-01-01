@@ -1,8 +1,19 @@
+svg {
+    background: rgb(240, 240, 240);
+}
+
 polygon {
     stroke: rgba(0, 0, 0, 0.6);
     fill: none;
 }
 
+.luma {
+    fill: white;
+    mix-blend-mode: overlay;
+}
+
 .color1 { fill: rgba(80, 200, 240, 0.9); }
 .color2 { fill: rgba(255, 90, 160, 0.9); }
 .color3 { fill: rgba(255, 190, 70, 0.9); }
+
+.color1 { fill: rgba(255, 90, 160, 0.9); }

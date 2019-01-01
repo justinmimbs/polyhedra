@@ -59,6 +59,13 @@ vectorNormalize ({ x, y, z } as v) =
     }
 
 
+vectorDot : Vector -> Vector -> Float
+vectorDot a b =
+    (a.x * b.x)
+        + (a.y * b.y)
+        + (a.z * b.z)
+
+
 vectorCross : Vector -> Vector -> Vector
 vectorCross a b =
     { x = a.y * b.z - a.z * b.y
@@ -81,6 +88,11 @@ vectorSubtract a b =
     , y = a.y - b.y
     , z = a.z - b.z
     }
+
+
+vectorDirection : Point -> Point -> Vector
+vectorDirection a b =
+    vectorSubtract b a |> vectorNormalize
 
 
 
@@ -216,6 +228,18 @@ faceToPolygon vertices face =
     List.map
         (lookup vectorZero vertices)
         face
+
+
+faceNormal : Polygon -> Vector
+faceNormal points =
+    case points of
+        a :: b :: c :: _ ->
+            vectorCross
+                (vectorDirection b a)
+                (vectorDirection b c)
+
+        _ ->
+            Vector 0 1 0
 
 
 
@@ -693,6 +717,9 @@ view =
             matrixLookAt (Vector 3 3 5) vectorZero
                 |> matrixScale (140 / radius)
 
+        lightDirection =
+            Vector -3 -6 1 |> matrixMultiply cameraMatrix |> vectorNormalize |> Debug.log "l"
+
         meshTransformed =
             { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiply cameraMatrix) }
     in
@@ -710,45 +737,54 @@ view =
             [ Svg.g
                 [ Svg.Attributes.transform "scale(1, -1) translate(250, -250) "
                 ]
-                [ viewMesh faceClass meshTransformed
+                [ viewMesh lightDirection faceClass meshTransformed
                 ]
             ]
         ]
 
 
-viewMesh : (Int -> String) -> Mesh -> Svg a
-viewMesh faceClass { vertices, faces } =
+viewMesh : Vector -> (Int -> String) -> Mesh -> Svg a
+viewMesh lightDirection faceClass { vertices, faces } =
     let
-        ( frontFaces, backFaces ) =
+        ( backFaces, frontFaces, lumaFaces ) =
             faces
                 |> Dict.foldl
-                    (\f face ( fronts, backs ) ->
+                    (\f face ( backs, fronts, luma ) ->
                         let
                             polygon =
                                 face |> faceToPolygon vertices
 
                             polygonView =
-                                polygon |> viewPolygon (faceClass f)
+                                polygon |> viewPolygon [] (faceClass f)
                         in
                         if polygon |> polygonIsClockwise then
-                            ( polygonView :: fronts, backs )
+                            let
+                                alpha =
+                                    (0 - (faceNormal polygon |> vectorDot lightDirection)) ^ 2 |> Debug.log "a"
+
+                                lumaFace =
+                                    viewPolygon [ Svg.Attributes.opacity (String.fromFloat alpha) ] "luma" polygon
+                            in
+                            ( backs, polygonView :: fronts, lumaFace :: luma )
 
                         else
-                            ( fronts, polygonView :: backs )
+                            ( polygonView :: backs, fronts, luma )
                     )
-                    ( [], [] )
+                    ( [], [], [] )
     in
     Svg.g
         []
-        (backFaces ++ frontFaces)
+        (backFaces ++ frontFaces ++ lumaFaces)
 
 
-viewPolygon : String -> Polygon -> Svg a
-viewPolygon class points =
+viewPolygon : List (Svg.Attribute a) -> String -> Polygon -> Svg a
+viewPolygon attributes class points =
     Svg.polygon
-        [ Svg.Attributes.class class
-        , Svg.Attributes.points (points |> pointsToString)
-        ]
+        (attributes
+            ++ [ Svg.Attributes.class class
+               , Svg.Attributes.points (points |> pointsToString)
+               ]
+        )
         []
 
 
