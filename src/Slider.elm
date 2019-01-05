@@ -1,43 +1,30 @@
-module Slider exposing (main)
+module Slider exposing (Slider, brushEnd, brushMove, brushStart, init, isBrushing, value, view)
 
-import Browser
-import Browser.Events
-import Html exposing (Html)
-import Html.Attributes
 import Json.Decode as Decode exposing (Decoder)
 import Svg exposing (Svg)
 import Svg.Attributes
 import Svg.Events
 
 
-main : Program () Model Msg
-main =
-    Browser.document
-        { init = \_ -> ( init 300 120, Cmd.none )
-        , update = update
-        , view = view
-        , subscriptions = subscriptions
-        }
-
-
-type alias Model =
-    Slider
-
-
-
--- slider
-
-
 type alias Slider =
     { brushing : Maybe Float
     , length : Float
-    , position : Float
+    , val : Float
     }
 
 
 init : Float -> Float -> Slider
 init =
     Slider Nothing
+
+
+
+-- query
+
+
+value : Slider -> Float
+value { val } =
+    val
 
 
 isBrushing : Slider -> Bool
@@ -50,34 +37,8 @@ isBrushing { brushing } =
             False
 
 
-brushStart : Point2D -> Slider -> Slider
-brushStart { x } { length, position } =
-    Slider (Just (position - x)) length position
 
-
-brushMove : Point2D -> Slider -> Slider
-brushMove { x } ({ brushing, length } as slider) =
-    case brushing of
-        Just offset ->
-            Slider brushing length (clamp 0 length (x + offset))
-
-        Nothing ->
-            slider
-
-
-brushEnd : Slider -> Slider
-brushEnd { length, position } =
-    Slider Nothing length position
-
-
-
--- update
-
-
-type Msg
-    = BrushStarted Point2D
-    | BrushMoved Point2D
-    | BrushEnded
+-- update actions
 
 
 type alias Point2D =
@@ -86,40 +47,65 @@ type alias Point2D =
     }
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg slider =
-    ( case msg of
-        BrushStarted point ->
-            slider |> brushStart point
-
-        BrushMoved point ->
-            slider |> brushMove point
-
-        BrushEnded ->
-            slider |> brushEnd
-    , Cmd.none
-    )
+brushStart : Point2D -> Slider -> Slider
+brushStart { x } { length, val } =
+    Slider (Just (val * length - x)) length val
 
 
+brushMove : Point2D -> Slider -> Slider
+brushMove { x } ({ length, brushing } as slider) =
+    case brushing of
+        Just offset ->
+            Slider brushing length (clamp 0 1 ((x + offset) / length))
 
--- events
-
-
-subscriptions : Model -> Sub Msg
-subscriptions slider =
-    if slider |> isBrushing then
-        subBrushing
-
-    else
-        Sub.none
+        Nothing ->
+            slider
 
 
-subBrushing : Sub Msg
-subBrushing =
-    Sub.batch
-        [ Browser.Events.onMouseMove (Decode.map BrushMoved decodeMousePosition)
-        , Browser.Events.onMouseUp (Decode.succeed BrushEnded)
-        , Browser.Events.onVisibilityChange (always BrushEnded)
+brushEnd : Slider -> Slider
+brushEnd { length, val } =
+    Slider Nothing length val
+
+
+
+-- view
+
+
+view : (Point2D -> msg) -> Slider -> Svg msg
+view tagger ({ length, val } as slider) =
+    Svg.g
+        [ Svg.Attributes.class <|
+            "slider"
+                ++ (if slider |> isBrushing then
+                        " active"
+
+                    else
+                        ""
+                   )
+        ]
+        [ Svg.line
+            [ Svg.Attributes.x1 "0"
+            , Svg.Attributes.y1 "0"
+            , Svg.Attributes.x2 <| String.fromFloat length
+            , Svg.Attributes.y2 "0"
+            ]
+            []
+        , Svg.circle
+            [ Svg.Attributes.cx <| String.fromFloat (val * length)
+            , Svg.Attributes.cy "0"
+            , Svg.Attributes.r "5"
+            ]
+            []
+        , Svg.circle
+            [ Svg.Attributes.class "thumb"
+            , Svg.Attributes.cx <| String.fromFloat (val * length)
+            , Svg.Attributes.cy "0"
+            , Svg.Attributes.r "15"
+            , Svg.Events.preventDefaultOn
+                "mousedown"
+                (decodeMousePosition |> Decode.map (\point -> ( tagger point, True )))
+            ]
+            []
         ]
 
 
@@ -128,71 +114,3 @@ decodeMousePosition =
     Decode.map2 Point2D
         (Decode.field "pageX" Decode.float)
         (Decode.field "pageY" Decode.float)
-
-
-
--- view
-
-
-view : Model -> Browser.Document Msg
-view slider =
-    Browser.Document
-        "Slider"
-        [ Html.node "link"
-            [ Html.Attributes.rel "stylesheet"
-            , Html.Attributes.href "../css/style.css"
-            ]
-            []
-        , Svg.svg
-            [ Svg.Attributes.width "500"
-            , Svg.Attributes.height "500"
-            ]
-            [ Svg.g
-                [ Svg.Attributes.transform "translate(100, 450) "
-                ]
-                [ viewSlider BrushStarted slider
-                ]
-            ]
-        ]
-
-
-viewSlider : (Point2D -> msg) -> Slider -> Svg msg
-viewSlider tagger slider =
-    Svg.g
-        [ Svg.Attributes.class <| "slider" ++ bool " active" "" (slider |> isBrushing)
-        ]
-        [ Svg.line
-            [ Svg.Attributes.x1 "0"
-            , Svg.Attributes.y1 "0"
-            , Svg.Attributes.x2 <| String.fromFloat slider.length
-            , Svg.Attributes.y2 "0"
-            ]
-            []
-        , Svg.circle
-            [ Svg.Attributes.cx <| String.fromFloat slider.position
-            , Svg.Attributes.cy "0"
-            , Svg.Attributes.r "5"
-            ]
-            []
-        , Svg.circle
-            [ Svg.Attributes.class "thumb"
-            , Svg.Attributes.cx <| String.fromFloat slider.position
-            , Svg.Attributes.cy "0"
-            , Svg.Attributes.r "15"
-            , Svg.Events.preventDefaultOn "mousedown" (decodeMousePosition |> Decode.map (\point -> ( tagger point, True )))
-            ]
-            []
-        ]
-
-
-
--- helpers
-
-
-bool : a -> a -> Bool -> a
-bool t f x =
-    if x then
-        t
-
-    else
-        f
