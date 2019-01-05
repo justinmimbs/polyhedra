@@ -531,7 +531,7 @@ bitruncate polyhedron =
                     (\_ list ->
                         case list of
                             [ f1, f2 ] ->
-                                orderPair ( f1, f2 )
+                                orderedPair f1 f2
 
                             _ ->
                                 ( 0, 0 )
@@ -591,9 +591,9 @@ bitruncate polyhedron =
         -- rectified points
         newVertices
             |> List.map
-                (\vu ->
+                (\(( v, u ) as vu) ->
                     ( vu
-                    , orderPair vu |> lookup 0 pairToV |> lookup vectorZero rectified.vertices
+                    , orderedPair v u |> lookup 0 pairToV |> lookup vectorZero rectified.vertices
                     )
                 )
             |> Dict.fromList
@@ -615,23 +615,13 @@ bitruncate polyhedron =
 -- pair
 
 
-areSymmetricPairs : ( a, a ) -> ( a, a ) -> Bool
-areSymmetricPairs ( a, b ) ( c, d ) =
-    a == d && b == c
-
-
-isOrderedPair : ( comparable, comparable ) -> Bool
-isOrderedPair ( a, b ) =
-    a < b
-
-
-orderPair : ( comparable, comparable ) -> ( comparable, comparable )
-orderPair (( a, b ) as ab) =
-    if b < a then
-        ( b, a )
+orderedPair : comparable -> comparable -> ( comparable, comparable )
+orderedPair a b =
+    if a <= b then
+        ( a, b )
 
     else
-        ab
+        ( b, a )
 
 
 
