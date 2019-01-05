@@ -3,8 +3,9 @@ svg {
 }
 
 polygon {
-    stroke: rgba(0, 0, 0, 0.6);
     fill: none;
+    stroke: rgba(0, 0, 0, 0.6);
+    stroke-linecap: round;
 }
 
 .light {
@@ -22,3 +23,14 @@ polygon {
 .color3 { fill: rgba(255, 190, 70, 0.9); }
 
 .color1 { fill: rgba(255, 90, 150, 0.9); }
+
+
+.slider line {
+    stroke: rgba(0, 0, 0, 0.35);
+    stroke-width: 2px;
+    stroke-linecap: round;
+}
+
+.slider .thumb { opacity: 0; }
+.slider .thumb:hover { opacity: 0.05; }
+.slider.active .thumb { opacity: 0.1; }
