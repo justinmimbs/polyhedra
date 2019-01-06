@@ -105,8 +105,9 @@ faceNormal points =
     case points of
         a :: b :: c :: _ ->
             vectorCross
-                (direction b a)
-                (direction b c)
+                (vectorSubtract b a)
+                (vectorSubtract b c)
+                |> vectorNormalize
 
         _ ->
             Vector 0 1 0
