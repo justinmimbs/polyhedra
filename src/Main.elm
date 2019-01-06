@@ -8,7 +8,7 @@ import Html exposing (Html)
 import Html.Attributes
 import Json.Decode as Decode exposing (Decoder)
 import Mesh exposing (Mesh, SuperMesh, faceNormal, faceToPolygon, reify)
-import Polyhedron exposing (bitruncate, cube, truncate)
+import Polyhedron exposing (bitruncate, cube, icosahedron, octahedron, tetrahedron, truncate)
 import Set exposing (Set)
 import Slider exposing (Slider)
 import Svg exposing (Svg)

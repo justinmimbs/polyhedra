@@ -1,12 +1,12 @@
 module Polyhedron exposing
     ( truncate, bitruncate
-    , cube, tetrahedron
+    , tetrahedron, cube, octahedron, icosahedron
     )
 
 {-|
 
 @docs truncate, bitruncate
-@docs cube, tetrahedron
+@docs tetrahedron, cube, octahedron, icosahedron
 
 -}
 
@@ -290,23 +290,19 @@ simplePathHelp start edges prev path =
 
 tetrahedron : Mesh
 tetrahedron =
-    let
-        centroid =
-            Point 0.5 (sqrt (2 / 3) / 4) (sqrt 0.75 / 3)
-    in
     { vertices =
-        [ ( 1, Point 0 0 0 )
-        , ( 2, Point 1 0 0 )
-        , ( 3, Point 0.5 0 (sqrt 0.75) )
-        , ( 4, Point 0.5 (sqrt (2 / 3)) (sqrt 0.75 / 3) )
+        [ ( 1, Point -1 -1 1 )
+        , ( 2, Point -1 1 -1 )
+        , ( 3, Point 1 -1 -1 )
+        , ( 4, Point 1 1 1 )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ v -> vectorSubtract v centroid |> vectorScale 100)
+            |> Dict.map (\_ -> vectorScale 100)
     , faces =
-        [ ( 4, [ 3, 2, 1 ] )
+        [ ( 1, [ 3, 2, 1 ] )
         , ( 2, [ 4, 2, 3 ] )
         , ( 3, [ 4, 3, 1 ] )
-        , ( 1, [ 4, 1, 2 ] )
+        , ( 4, [ 4, 1, 2 ] )
         ]
             |> Dict.fromList
     }
@@ -314,22 +310,18 @@ tetrahedron =
 
 cube : Mesh
 cube =
-    let
-        centroid =
-            Point 0.5 0.5 0.5
-    in
     { vertices =
-        [ ( 1, Point 0 0 0 )
-        , ( 2, Point 0 0 1 )
-        , ( 3, Point 0 1 0 )
-        , ( 4, Point 0 1 1 )
-        , ( 5, Point 1 0 0 )
-        , ( 6, Point 1 0 1 )
-        , ( 7, Point 1 1 0 )
+        [ ( 1, Point -1 -1 -1 )
+        , ( 2, Point -1 -1 1 )
+        , ( 3, Point -1 1 -1 )
+        , ( 4, Point -1 1 1 )
+        , ( 5, Point 1 -1 -1 )
+        , ( 6, Point 1 -1 1 )
+        , ( 7, Point 1 1 -1 )
         , ( 8, Point 1 1 1 )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ v -> vectorSubtract v centroid |> vectorScale 100)
+            |> Dict.map (\_ -> vectorScale 100)
     , faces =
         [ ( 1, [ 1, 5, 7, 3 ] )
         , ( 2, [ 1, 3, 4, 2 ] )
@@ -337,6 +329,81 @@ cube =
         , ( 4, [ 2, 4, 8, 6 ] )
         , ( 5, [ 5, 6, 8, 7 ] )
         , ( 6, [ 3, 7, 8, 4 ] )
+        ]
+            |> Dict.fromList
+    }
+
+
+octahedron : Mesh
+octahedron =
+    { vertices =
+        [ ( 1, Point -1 0 0 )
+        , ( 2, Point 1 0 0 )
+        , ( 3, Point 0 -1 0 )
+        , ( 4, Point 0 1 0 )
+        , ( 5, Point 0 0 -1 )
+        , ( 6, Point 0 0 1 )
+        ]
+            |> Dict.fromList
+            |> Dict.map (\_ -> vectorScale 100)
+    , faces =
+        [ ( 1, [ 4, 1, 5 ] )
+        , ( 2, [ 4, 5, 2 ] )
+        , ( 3, [ 4, 2, 6 ] )
+        , ( 4, [ 4, 6, 1 ] )
+        , ( 5, [ 3, 1, 6 ] )
+        , ( 6, [ 3, 6, 2 ] )
+        , ( 7, [ 3, 2, 5 ] )
+        , ( 8, [ 3, 5, 1 ] )
+        ]
+            |> Dict.fromList
+    }
+
+
+phi : Float
+phi =
+    (1 + sqrt 5) / 2
+
+
+icosahedron : Mesh
+icosahedron =
+    { vertices =
+        [ ( 1, Point -phi -1 0 )
+        , ( 2, Point -phi 1 0 )
+        , ( 3, Point phi -1 0 )
+        , ( 4, Point phi 1 0 )
+        , ( 5, Point -1 0 -phi )
+        , ( 6, Point -1 0 phi )
+        , ( 7, Point 1 0 -phi )
+        , ( 8, Point 1 0 phi )
+        , ( 9, Point 0 -phi -1 )
+        , ( 10, Point 0 -phi 1 )
+        , ( 11, Point 0 phi -1 )
+        , ( 12, Point 0 phi 1 )
+        ]
+            |> Dict.fromList
+            |> Dict.map (\_ -> vectorScale 100)
+    , faces =
+        [ ( 1, [ 1, 2, 6 ] )
+        , ( 2, [ 2, 1, 5 ] )
+        , ( 3, [ 3, 4, 7 ] )
+        , ( 4, [ 4, 3, 8 ] )
+        , ( 5, [ 5, 7, 11 ] )
+        , ( 6, [ 7, 5, 9 ] )
+        , ( 7, [ 6, 8, 10 ] )
+        , ( 8, [ 8, 6, 12 ] )
+        , ( 9, [ 9, 10, 3 ] )
+        , ( 10, [ 10, 9, 1 ] )
+        , ( 11, [ 12, 11, 4 ] )
+        , ( 12, [ 11, 12, 2 ] )
+        , ( 13, [ 12, 4, 8 ] )
+        , ( 14, [ 12, 6, 2 ] )
+        , ( 15, [ 11, 7, 4 ] )
+        , ( 16, [ 11, 2, 5 ] )
+        , ( 17, [ 10, 8, 3 ] )
+        , ( 18, [ 10, 1, 6 ] )
+        , ( 19, [ 9, 3, 7 ] )
+        , ( 20, [ 9, 5, 1 ] )
         ]
             |> Dict.fromList
     }
