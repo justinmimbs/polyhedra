@@ -5,7 +5,8 @@ svg {
 polygon {
     fill: none;
     stroke: rgba(0, 0, 0, 0.6);
-    stroke-linecap: round;
+    stroke-width: 1px;
+    stroke-linejoin: round;
 }
 
 .light {
@@ -21,8 +22,6 @@ polygon {
 .color1 { fill: rgba(80, 200, 240, 0.9); }
 .color2 { fill: rgba(255, 90, 150, 0.9); }
 .color3 { fill: rgba(255, 190, 70, 0.9); }
-
-.color1 { fill: rgba(255, 90, 150, 0.9); }
 
 
 .slider line {

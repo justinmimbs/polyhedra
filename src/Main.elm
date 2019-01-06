@@ -1,33 +1,119 @@
 module Main exposing (main)
 
+import Browser
+import Browser.Events
 import Dict exposing (Dict)
 import Geometry exposing (..)
 import Html exposing (Html)
 import Html.Attributes
-import Mesh exposing (Mesh, faceNormal, faceToPolygon, reify)
+import Json.Decode as Decode exposing (Decoder)
+import Mesh exposing (Mesh, SuperMesh, faceNormal, faceToPolygon, reify)
 import Polyhedron exposing (bitruncate, cube, truncate)
 import Set exposing (Set)
+import Slider exposing (Slider)
 import Svg exposing (Svg)
 import Svg.Attributes
 
 
-main : Html a
+main : Program () Model Msg
 main =
-    view
+    Browser.document
+        { init = \_ -> ( init cube, Cmd.none )
+        , update = \msg model -> ( update msg model, Cmd.none )
+        , view = view
+        , subscriptions = subscriptions
+        }
 
 
-view : Html a
+type alias Model =
+    { truncation : SuperMesh
+    , bitruncation : SuperMesh
+    , slider : Slider
+    }
+
+
+init : Mesh -> Model
+init polyhedron =
+    { truncation = truncate polyhedron
+    , bitruncation = bitruncate polyhedron
+    , slider = Slider.init 300 0
+    }
+
+
+
+-- update
+
+
+type Msg
+    = BrushStarted Point2D
+    | BrushMoved Point2D
+    | BrushEnded
+
+
+type alias Point2D =
+    { x : Float
+    , y : Float
+    }
+
+
+update : Msg -> Model -> Model
+update msg ({ slider } as model) =
+    case msg of
+        BrushStarted point ->
+            { model | slider = slider |> Slider.brushStart point }
+
+        BrushMoved point ->
+            { model | slider = slider |> Slider.brushMove point }
+
+        BrushEnded ->
+            { model | slider = slider |> Slider.brushEnd }
+
+
+
+-- events
+
+
+subscriptions : Model -> Sub Msg
+subscriptions { slider } =
+    if slider |> Slider.isBrushing then
+        subBrushing
+
+    else
+        Sub.none
+
+
+subBrushing : Sub Msg
+subBrushing =
+    Sub.batch
+        [ Browser.Events.onMouseMove (Decode.map BrushMoved decodeMousePosition)
+        , Browser.Events.onMouseUp (Decode.succeed BrushEnded)
+        , Browser.Events.onVisibilityChange (always BrushEnded)
+        ]
+
+
+decodeMousePosition : Decoder Point2D
+decodeMousePosition =
+    Decode.map2 Point2D
+        (Decode.field "pageX" Decode.float)
+        (Decode.field "pageY" Decode.float)
+
+
+
+-- view
+
+
+view : Model -> Browser.Document Msg
 view =
     let
-        mesh =
-            -- cube |> truncate |> reify (sqrt 2 / (1 + sqrt 2))
-            cube |> bitruncate |> reify 0.2
+        cameraMatrix : Matrix
+        cameraMatrix =
+            matrixLookAt (Vector 3 3 5) vectorZero
 
-        radius =
-            mesh.vertices
-                |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
-                |> sqrt
+        lightDirection : Vector
+        lightDirection =
+            Vector -3 -6 1 |> matrixMultiply cameraMatrix |> vectorNormalize
 
+        faceClass : Int -> String
         faceClass =
             let
                 originalFaces =
@@ -35,39 +121,57 @@ view =
             in
             \f ->
                 if Set.member f originalFaces then
-                    "color1"
+                    "color2"
 
                 else
                     "color2"
-
-        cameraMatrix =
-            matrixLookAt (Vector 3 3 5) vectorZero
-                |> matrixScale (140 / radius)
-
-        lightDirection =
-            Vector -3 -6 1 |> matrixMultiply cameraMatrix |> vectorNormalize
-
-        meshTransformed =
-            { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiply cameraMatrix) }
     in
-    Html.div
-        []
-        [ Html.node "link"
-            [ Html.Attributes.rel "stylesheet"
-            , Html.Attributes.href "../css/style.css"
-            ]
-            []
-        , Svg.svg
-            [ Svg.Attributes.width "500"
-            , Svg.Attributes.height "500"
-            ]
-            [ Svg.g
-                [ Svg.Attributes.transform "scale(1, -1) translate(250, -250) "
+    \{ truncation, bitruncation, slider } ->
+        let
+            t =
+                Slider.value slider * 2
+
+            mesh =
+                if t <= 1.0 then
+                    reify t truncation
+
+                else
+                    reify (t - 1.0) bitruncation
+
+            radius =
+                mesh.vertices
+                    |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
+                    |> sqrt
+
+            matrix =
+                cameraMatrix |> matrixScale (140 / radius)
+
+            meshTransformed =
+                { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiply matrix) }
+        in
+        Browser.Document
+            "Polyhedra"
+            [ Html.node "link"
+                [ Html.Attributes.rel "stylesheet"
+                , Html.Attributes.href "../css/style.css"
                 ]
-                [ viewMesh lightDirection faceClass meshTransformed
+                []
+            , Svg.svg
+                [ Svg.Attributes.width "500"
+                , Svg.Attributes.height "500"
+                ]
+                [ Svg.g
+                    [ Svg.Attributes.transform "scale(1, -1) translate(250, -250) "
+                    ]
+                    [ viewMesh lightDirection faceClass meshTransformed
+                    ]
+                , Svg.g
+                    [ Svg.Attributes.transform "translate(100, 450) "
+                    ]
+                    [ Slider.view BrushStarted slider
+                    ]
                 ]
             ]
-        ]
 
 
 viewMesh : Vector -> (Int -> String) -> Mesh -> Svg a
