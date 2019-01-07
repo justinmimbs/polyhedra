@@ -1,12 +1,12 @@
 module Polyhedron exposing
     ( truncate, bitruncate
-    , tetrahedron, cube, octahedron, icosahedron
+    , tetrahedron, cube, octahedron, icosahedron, dodecahedron
     )
 
 {-|
 
 @docs truncate, bitruncate
-@docs tetrahedron, cube, octahedron, icosahedron
+@docs tetrahedron, cube, octahedron, icosahedron, dodecahedron
 
 -}
 
@@ -404,6 +404,55 @@ icosahedron =
         , ( 18, [ 10, 1, 6 ] )
         , ( 19, [ 9, 3, 7 ] )
         , ( 20, [ 9, 5, 1 ] )
+        ]
+            |> Dict.fromList
+    }
+
+
+invPhi : Float
+invPhi =
+    1 / phi
+
+
+dodecahedron : Mesh
+dodecahedron =
+    { vertices =
+        [ ( 1, Point -1 -1 -1 )
+        , ( 2, Point -1 -1 1 )
+        , ( 3, Point -1 1 -1 )
+        , ( 4, Point -1 1 1 )
+        , ( 5, Point 1 -1 -1 )
+        , ( 6, Point 1 -1 1 )
+        , ( 7, Point 1 1 -1 )
+        , ( 8, Point 1 1 1 )
+        , ( 9, Point -invPhi -phi 0 )
+        , ( 10, Point -invPhi phi 0 )
+        , ( 11, Point invPhi -phi 0 )
+        , ( 12, Point invPhi phi 0 )
+        , ( 13, Point -phi 0 -invPhi )
+        , ( 14, Point -phi 0 invPhi )
+        , ( 15, Point phi 0 -invPhi )
+        , ( 16, Point phi 0 invPhi )
+        , ( 17, Point 0 -invPhi -phi )
+        , ( 18, Point 0 -invPhi phi )
+        , ( 19, Point 0 invPhi -phi )
+        , ( 20, Point 0 invPhi phi )
+        ]
+            |> Dict.fromList
+            |> Dict.map (\_ -> vectorScale 100)
+    , faces =
+        [ ( 1, [ 8, 16, 6, 18, 20 ] )
+        , ( 2, [ 8, 20, 4, 10, 12 ] )
+        , ( 3, [ 16, 8, 12, 7, 15 ] )
+        , ( 4, [ 6, 16, 15, 5, 11 ] )
+        , ( 5, [ 18, 6, 11, 9, 2 ] )
+        , ( 6, [ 20, 18, 2, 14, 4 ] )
+        , ( 7, [ 1, 17, 19, 3, 13 ] )
+        , ( 8, [ 1, 13, 14, 2, 9 ] )
+        , ( 9, [ 17, 1, 9, 11, 5 ] )
+        , ( 10, [ 19, 17, 5, 15, 7 ] )
+        , ( 11, [ 3, 19, 7, 12, 10 ] )
+        , ( 12, [ 13, 3, 10, 4, 14 ] )
         ]
             |> Dict.fromList
     }
