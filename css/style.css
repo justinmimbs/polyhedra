@@ -1,17 +1,17 @@
 svg {
-    background: rgb(240, 240, 240);
+    background: rgb(225, 230, 235);
 }
 
 polygon {
     fill: none;
-    stroke: rgba(0, 0, 0, 0.6);
+    stroke: rgba(255, 255, 255, 0.4);
     stroke-width: 1px;
     stroke-linejoin: round;
 }
 
 .light {
-    fill: rgb(255, 255, 255);
-    mix-blend-mode: overlay;
+    fill: rgb(245, 250, 255);
+    mix-blend-mode: soft-light;
 }
 
 .dark {
@@ -19,13 +19,11 @@ polygon {
     mix-blend-mode: hard-light;
 }
 
-.color1 { fill: rgba(80, 200, 240, 0.9); }
-.color2 { fill: rgba(255, 90, 150, 0.9); }
-.color3 { fill: rgba(255, 190, 70, 0.9); }
-
+.color1 { fill: rgba(255, 90, 130, 0.9); }
+.color2 { fill: rgba(255, 94, 104, 0.9); }
 
 .slider line {
-    stroke: rgba(0, 0, 0, 0.35);
+    stroke: rgba(0, 0, 0, 0.3);
     stroke-width: 2px;
     stroke-linecap: round;
 }

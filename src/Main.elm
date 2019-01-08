@@ -18,7 +18,7 @@ import Svg.Attributes
 main : Program () Model Msg
 main =
     Browser.document
-        { init = \_ -> ( init cube, Cmd.none )
+        { init = \_ -> ( init icosahedron, Cmd.none )
         , update = \msg model -> ( update msg model, Cmd.none )
         , view = view
         , subscriptions = subscriptions
@@ -26,7 +26,8 @@ main =
 
 
 type alias Model =
-    { truncation : SuperMesh
+    { seedFaces : Set Int
+    , truncation : SuperMesh
     , bitruncation : SuperMesh
     , slider : Slider
     }
@@ -34,7 +35,8 @@ type alias Model =
 
 init : Mesh -> Model
 init polyhedron =
-    { truncation = truncate polyhedron
+    { seedFaces = polyhedron.faces |> Dict.keys |> Set.fromList
+    , truncation = truncate polyhedron
     , bitruncation = bitruncate polyhedron
     , slider = Slider.init 300 0
     }
@@ -112,22 +114,17 @@ view =
         lightDirection : Vector
         lightDirection =
             Vector -3 -6 1 |> matrixMultiply cameraMatrix |> vectorNormalize
-
-        faceClass : Int -> String
-        faceClass =
-            let
-                originalFaces =
-                    cube.faces |> Dict.keys |> Set.fromList
-            in
-            \f ->
-                if Set.member f originalFaces then
-                    "color2"
+    in
+    \{ seedFaces, truncation, bitruncation, slider } ->
+        let
+            faceClass : Int -> String
+            faceClass f =
+                if Set.member f seedFaces then
+                    "color1"
 
                 else
                     "color2"
-    in
-    \{ truncation, bitruncation, slider } ->
-        let
+
             t =
                 Slider.value slider * 2
 
