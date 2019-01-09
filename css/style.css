@@ -10,7 +10,8 @@ polygon {
 }
 
 .light {
-    fill: rgb(245, 250, 255);
+    fill: rgb(245, 250, 255); /*cool*/
+    fill: rgb(250, 245, 195); /*warm*/
     mix-blend-mode: soft-light;
 }
 
@@ -19,8 +20,13 @@ polygon {
     mix-blend-mode: hard-light;
 }
 
-.color1 { fill: rgba(255, 90, 130, 0.9); }
-.color2 { fill: rgba(255, 94, 104, 0.9); }
+.color1 { fill: rgba(255, 95, 135, 0.9); } /*magenta*/
+.color1 { fill: rgba(70, 178, 214, 0.9); } /*cyan*/
+
+.color2 { fill: rgba(230, 75, 65, 0.9); } /*red*/
+.color2 { fill: rgba(237, 118, 31, 0.9); } /*orange*/
+.color2 { fill: rgba(237, 148, 41, 0.9); } /*amber*/
+.color2 { fill: rgba(100, 194, 46, 0.9); } /*green*/
 
 .slider line {
     stroke: rgba(0, 0, 0, 0.3);
