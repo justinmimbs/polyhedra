@@ -97,7 +97,7 @@ view tagger ({ length, val } as slider) =
             ]
             []
         , Svg.circle
-            [ Svg.Attributes.class "thumb"
+            [ Svg.Attributes.class "thumb-toucharea"
             , Svg.Attributes.cx <| String.fromFloat (val * length)
             , Svg.Attributes.cy "0"
             , Svg.Attributes.r "15"

@@ -38,7 +38,7 @@ init polyhedron =
     { seedFaces = polyhedron.faces |> Dict.keys |> Set.fromList
     , truncation = truncate polyhedron
     , bitruncation = bitruncate polyhedron
-    , slider = Slider.init 300 0
+    , slider = Slider.init 260 0
     }
 
 
@@ -120,10 +120,10 @@ view =
             faceClass : Int -> String
             faceClass f =
                 if Set.member f seedFaces then
-                    "color1"
+                    "face a"
 
                 else
-                    "color2"
+                    "face b"
 
             t =
                 Slider.value slider * 2
@@ -141,7 +141,7 @@ view =
                     |> sqrt
 
             matrix =
-                cameraMatrix |> matrixScale (140 / radius)
+                cameraMatrix |> matrixScale (160 / radius)
 
             meshTransformed =
                 { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiply matrix) }
@@ -154,16 +154,16 @@ view =
                 ]
                 []
             , Svg.svg
-                [ Svg.Attributes.width "500"
+                [ Svg.Attributes.width "400"
                 , Svg.Attributes.height "500"
                 ]
                 [ Svg.g
-                    [ Svg.Attributes.transform "scale(1, -1) translate(250, -250) "
+                    [ Svg.Attributes.transform "scale(1, -1) translate(200, -200) "
                     ]
                     [ viewMesh lightDirection faceClass meshTransformed
                     ]
                 , Svg.g
-                    [ Svg.Attributes.transform "translate(100, 450) "
+                    [ Svg.Attributes.transform "translate(70, 440) "
                     ]
                     [ Slider.view BrushStarted slider
                     ]
