@@ -73,37 +73,57 @@ brushEnd { length, val } =
 
 view : (Point2D -> msg) -> Slider -> Svg msg
 view tagger ({ length, val } as slider) =
+    let
+        xPosition =
+            String.fromFloat (val * length)
+    in
     Svg.g
         [ Svg.Attributes.class <|
             "slider"
                 ++ (if slider |> isBrushing then
-                        " active"
+                        " pressed"
 
                     else
                         ""
                    )
         ]
         [ Svg.line
-            [ Svg.Attributes.x1 "0"
+            [ Svg.Attributes.x1 xPosition
             , Svg.Attributes.y1 "0"
             , Svg.Attributes.x2 <| String.fromFloat length
             , Svg.Attributes.y2 "0"
             ]
             []
+        , Svg.line
+            [ Svg.Attributes.class "active"
+            , Svg.Attributes.x1 "0"
+            , Svg.Attributes.y1 "0"
+            , Svg.Attributes.x2 xPosition
+            , Svg.Attributes.y2 "0"
+            ]
+            []
         , Svg.circle
-            [ Svg.Attributes.cx <| String.fromFloat (val * length)
+            [ Svg.Attributes.class "thumb"
+            , Svg.Attributes.cx xPosition
             , Svg.Attributes.cy "0"
             , Svg.Attributes.r "5"
             ]
             []
         , Svg.circle
             [ Svg.Attributes.class "thumb-toucharea"
-            , Svg.Attributes.cx <| String.fromFloat (val * length)
+            , Svg.Attributes.cx xPosition
             , Svg.Attributes.cy "0"
             , Svg.Attributes.r "15"
             , Svg.Events.preventDefaultOn
                 "mousedown"
                 (decodeMousePosition |> Decode.map (\point -> ( tagger point, True )))
+            ]
+            []
+        , Svg.circle
+            [ Svg.Attributes.class "thumb-outline"
+            , Svg.Attributes.cx xPosition
+            , Svg.Attributes.cy "0"
+            , Svg.Attributes.r "6"
             ]
             []
         ]

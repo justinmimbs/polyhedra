@@ -1,6 +1,6 @@
 :root {
     --surface: rgb(225, 230, 235);
-    --primary: rgb(40, 40, 40);
+    --primary: rgb(70, 70, 70);
 
     --magenta: rgb(255, 95, 135);
     --cyan: rgb(70, 178, 214);
@@ -71,7 +71,10 @@ svg {
     stroke: var(--primary);
     stroke-width: 2px;
     stroke-linecap: round;
-    opacity: 0.3;
+    opacity: 0.25;
+}
+.slider line.active {
+    opacity: 0.6;
 }
 
 .slider .thumb-toucharea {
@@ -80,6 +83,14 @@ svg {
 .slider .thumb-toucharea:hover {
     opacity: 0.05;
 }
-.slider.active .thumb-toucharea {
-    opacity: 0.1;
+.slider.pressed .thumb-toucharea {
+    opacity: 0.08;
+}
+
+.slider .thumb-outline {
+    fill: none;
+    stroke: none;
+}
+.slider.pressed .thumb-outline {
+    stroke: var(--surface);
 }
