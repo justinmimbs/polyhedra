@@ -1,16 +1,18 @@
 module Geometry exposing
     ( Vector, vectorZero, vectorLength, vectorLengthSquared, vectorNormalize, vectorScale, vectorAdd, vectorSubtract, vectorDot, vectorCross
-    , Matrix, matrixIdentity, matrixScale, matrixLookAt, matrixMultiply
+    , Matrix, matrixIdentity, matrixScale, matrixLookAt, matrixMultiply, matrixMultiplyVector
     , Point, direction, distanceSquared, interpolate, midpoint
     , Polygon, polygonCenter, polygonIsClockwise
+    , Quaternion, quaternionIdentity, quaternionFromAxisAngle, quaternionMultiply, quaternionToMatrix
     )
 
 {-|
 
 @docs Vector, vectorZero, vectorLength, vectorLengthSquared, vectorNormalize, vectorScale, vectorAdd, vectorSubtract, vectorDot, vectorCross
-@docs Matrix, matrixIdentity, matrixScale, matrixLookAt, matrixMultiply
+@docs Matrix, matrixIdentity, matrixScale, matrixLookAt, matrixMultiply, matrixMultiplyVector
 @docs Point, direction, distanceSquared, interpolate, midpoint
 @docs Polygon, polygonCenter, polygonIsClockwise
+@docs Quaternion, quaternionIdentity, quaternionFromAxisAngle, quaternionMultiply, quaternionToMatrix
 
 -}
 
@@ -120,14 +122,6 @@ matrixScale factor { a, b, c, t } =
     }
 
 
-matrixMultiply : Matrix -> Vector -> Vector
-matrixMultiply { a, b, c, t } { x, y, z } =
-    { x = x * a.x + y * b.x + z * c.x + t.x
-    , y = x * a.y + y * b.y + z * c.y + t.y
-    , z = x * a.z + y * b.z + z * c.z + t.z
-    }
-
-
 matrixLookAt : Point -> Point -> Matrix
 matrixLookAt from to =
     let
@@ -144,6 +138,39 @@ matrixLookAt from to =
     , b = Vector xaxis.y yaxis.y zaxis.y
     , c = Vector xaxis.z yaxis.z zaxis.z
     , t = to
+    }
+
+
+matrixMultiply : Matrix -> Matrix -> Matrix
+matrixMultiply m1 m2 =
+    { a =
+        Vector
+            (m1.a.x * m2.a.x + m1.a.y * m2.b.x + m1.a.z * m2.c.x)
+            (m1.a.x * m2.a.y + m1.a.y * m2.b.y + m1.a.z * m2.c.y)
+            (m1.a.x * m2.a.z + m1.a.y * m2.b.z + m1.a.z * m2.c.z)
+    , b =
+        Vector
+            (m1.b.x * m2.a.x + m1.b.y * m2.b.x + m1.b.z * m2.c.x)
+            (m1.b.x * m2.a.y + m1.b.y * m2.b.y + m1.b.z * m2.c.y)
+            (m1.b.x * m2.a.z + m1.b.y * m2.b.z + m1.b.z * m2.c.z)
+    , c =
+        Vector
+            (m1.c.x * m2.a.x + m1.c.y * m2.b.x + m1.c.z * m2.c.x)
+            (m1.c.x * m2.a.y + m1.c.y * m2.b.y + m1.c.z * m2.c.y)
+            (m1.c.x * m2.a.z + m1.c.y * m2.b.z + m1.c.z * m2.c.z)
+    , t =
+        Vector
+            (m1.t.x * m2.a.x + m1.t.y * m2.b.x + m1.t.z * m2.c.x)
+            (m1.t.x * m2.a.y + m1.t.y * m2.b.y + m1.t.z * m2.c.y)
+            (m1.t.x * m2.a.z + m1.t.y * m2.b.z + m1.t.z * m2.c.z)
+    }
+
+
+matrixMultiplyVector : Matrix -> Vector -> Vector
+matrixMultiplyVector { a, b, c, t } { x, y, z } =
+    { x = x * a.x + y * b.x + z * c.x + t.x
+    , y = x * a.y + y * b.y + z * c.y + t.y
+    , z = x * a.z + y * b.z + z * c.z + t.z
     }
 
 
@@ -218,3 +245,45 @@ polygonIsClockwise points =
                 points
     in
     0 < area2
+
+
+
+--
+
+
+type alias Quaternion =
+    ( Float, Vector )
+
+
+quaternionIdentity : Quaternion
+quaternionIdentity =
+    ( 1, vectorZero )
+
+
+quaternionFromAxisAngle : Vector -> Float -> Quaternion
+quaternionFromAxisAngle axis angle =
+    if angle /= 0 then
+        ( cos (angle / 2)
+        , vectorScale (sin (angle / 2)) axis
+        )
+
+    else
+        quaternionIdentity
+
+
+quaternionMultiply : Quaternion -> Quaternion -> Quaternion
+quaternionMultiply ( s1, v1 ) ( s2, v2 ) =
+    ( s1 * s2 - vectorDot v1 v2
+    , vectorScale s1 v2
+        |> vectorAdd (vectorScale s2 v1)
+        |> vectorAdd (vectorCross v1 v2)
+    )
+
+
+quaternionToMatrix : Quaternion -> Matrix
+quaternionToMatrix ( s, { x, y, z } ) =
+    { a = Vector (1 - 2 * y * y - 2 * z * z) (2 * x * y - 2 * s * z) (2 * x * z + 2 * s * y)
+    , b = Vector (2 * x * y + 2 * s * z) (1 - 2 * x * x - 2 * z * z) (2 * y * z - 2 * s * x)
+    , c = Vector (2 * x * z - 2 * s * y) (2 * y * z + 2 * s * x) (1 - 2 * x * x - 2 * y * y)
+    , t = vectorZero
+    }

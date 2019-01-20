@@ -1,4 +1,4 @@
-module Main exposing (main)
+module RotationExample exposing (main)
 
 import Browser
 import Browser.Events
@@ -8,17 +8,18 @@ import Html exposing (Html)
 import Html.Attributes
 import Json.Decode as Decode exposing (Decoder)
 import Mesh exposing (Mesh, SuperMesh, faceNormal, faceToPolygon, reify)
-import Polyhedron exposing (bitruncate, cube, dodecahedron, icosahedron, octahedron, tetrahedron, truncate)
+import Polyhedron exposing (cube)
 import Set exposing (Set)
 import Slider exposing (Slider)
 import Svg exposing (Svg)
 import Svg.Attributes
+import Svg.Events
 
 
 main : Program () Model Msg
 main =
     Browser.document
-        { init = \_ -> ( init icosahedron, Cmd.none )
+        { init = \_ -> ( Model quaternionIdentity Nothing, Cmd.none )
         , update = \msg model -> ( update msg model, Cmd.none )
         , view = view
         , subscriptions = subscriptions
@@ -26,19 +27,8 @@ main =
 
 
 type alias Model =
-    { seedFaces : Set Int
-    , truncation : SuperMesh
-    , bitruncation : SuperMesh
-    , slider : Slider
-    }
-
-
-init : Mesh -> Model
-init polyhedron =
-    { seedFaces = polyhedron.faces |> Dict.keys |> Set.fromList
-    , truncation = truncate polyhedron
-    , bitruncation = bitruncate polyhedron
-    , slider = Slider.init 260 0
+    { orientation : Quaternion
+    , brushing : Maybe { from : Point2D, to : Point2D }
     }
 
 
@@ -59,16 +49,45 @@ type alias Point2D =
 
 
 update : Msg -> Model -> Model
-update msg ({ slider } as model) =
+update msg ({ brushing, orientation } as model) =
     case msg of
-        BrushStarted point ->
-            { model | slider = slider |> Slider.brushStart point }
+        BrushStarted from ->
+            { model | brushing = Just { from = from, to = from } }
 
-        BrushMoved point ->
-            { model | slider = slider |> Slider.brushMove point }
+        BrushMoved to ->
+            case brushing of
+                Just { from } ->
+                    { model | brushing = Just { from = from, to = to } }
+
+                Nothing ->
+                    model
 
         BrushEnded ->
-            { model | slider = slider |> Slider.brushEnd }
+            { model
+                | brushing = Nothing
+                , orientation =
+                    brushing
+                        |> Maybe.map (brushingToRotation >> quaternionMultiply orientation)
+                        |> Maybe.withDefault orientation
+            }
+
+
+brushingToRotation : { from : Point2D, to : Point2D } -> Quaternion
+brushingToRotation { from, to } =
+    let
+        dx =
+            to.x - from.x
+
+        dy =
+            to.y - from.y
+
+        axis =
+            Vector -dy -dx 0 |> vectorNormalize
+
+        angle =
+            (sqrt (dx * dx + dy * dy) / 320) * pi
+    in
+    quaternionFromAxisAngle axis angle
 
 
 
@@ -76,12 +95,13 @@ update msg ({ slider } as model) =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { slider } =
-    if slider |> Slider.isBrushing then
-        subBrushing
+subscriptions { brushing } =
+    case brushing of
+        Just _ ->
+            subBrushing
 
-    else
-        Sub.none
+        Nothing ->
+            Sub.none
 
 
 subBrushing : Sub Msg
@@ -115,36 +135,19 @@ view =
         lightDirection =
             Vector -3 -6 1 |> matrixMultiplyVector cameraMatrix |> vectorNormalize
     in
-    \{ seedFaces, truncation, bitruncation, slider } ->
+    \{ orientation, brushing } ->
         let
-            faceClass : Int -> String
-            faceClass f =
-                if Set.member f seedFaces then
-                    "face a"
-
-                else
-                    "face b"
-
-            t =
-                Slider.value slider * 2
-
-            mesh =
-                if t <= 1.0 then
-                    reify t truncation
-
-                else
-                    reify (t - 1.0) bitruncation
-
-            radius =
-                mesh.vertices
-                    |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
-                    |> sqrt
+            rotationMatrix =
+                brushing
+                    |> Maybe.map (brushingToRotation >> quaternionMultiply orientation)
+                    |> Maybe.withDefault orientation
+                    |> quaternionToMatrix
 
             matrix =
-                cameraMatrix |> matrixScale (160 / radius)
+                matrixMultiply cameraMatrix rotationMatrix
 
             meshTransformed =
-                { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
+                { cube | vertices = cube.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
         in
         Browser.Document
             "Polyhedra"
@@ -160,12 +163,17 @@ view =
                 [ Svg.g
                     [ Svg.Attributes.transform "scale(1, -1) translate(200, -200) "
                     ]
-                    [ viewMesh lightDirection faceClass meshTransformed
-                    ]
-                , Svg.g
-                    [ Svg.Attributes.transform "translate(70, 440) "
-                    ]
-                    [ Slider.view BrushStarted slider
+                    [ viewMesh lightDirection (always "face a") meshTransformed
+                    , Svg.circle
+                        [ Svg.Attributes.cx "0"
+                        , Svg.Attributes.cy "0"
+                        , Svg.Attributes.r "160"
+                        , Svg.Attributes.opacity "0"
+                        , Svg.Events.preventDefaultOn
+                            "mousedown"
+                            (decodeMousePosition |> Decode.map (\point -> ( BrushStarted point, True )))
+                        ]
+                        []
                     ]
                 ]
             ]
