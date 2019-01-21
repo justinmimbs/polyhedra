@@ -30,6 +30,7 @@ type alias Model =
     , truncation : SuperMesh
     , bitruncation : SuperMesh
     , slider : Slider
+    , brushing : Maybe Brush
     }
 
 
@@ -39,6 +40,19 @@ init polyhedron =
     , truncation = truncate polyhedron
     , bitruncation = bitruncate polyhedron
     , slider = Slider.init 260 0
+    , brushing = Nothing
+    }
+
+
+type alias Brush =
+    { from : Point2D
+    , to : Point2D
+    }
+
+
+type alias Point2D =
+    { x : Float
+    , y : Float
     }
 
 
@@ -52,23 +66,30 @@ type Msg
     | BrushEnded
 
 
-type alias Point2D =
-    { x : Float
-    , y : Float
-    }
-
-
 update : Msg -> Model -> Model
-update msg ({ slider } as model) =
+update msg model =
     case msg of
         BrushStarted point ->
-            { model | slider = slider |> Slider.brushStart point }
+            { model | brushing = Just { from = point, to = point } }
 
         BrushMoved point ->
-            { model | slider = slider |> Slider.brushMove point }
+            case model.brushing of
+                Just { from } ->
+                    { model | brushing = Just { from = from, to = point } }
+
+                Nothing ->
+                    model
 
         BrushEnded ->
-            { model | slider = slider |> Slider.brushEnd }
+            case model.brushing of
+                Just brush ->
+                    { model
+                        | slider = model.slider |> Slider.applyBrush brush
+                        , brushing = Nothing
+                    }
+
+                Nothing ->
+                    model
 
 
 
@@ -76,12 +97,13 @@ update msg ({ slider } as model) =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { slider } =
-    if slider |> Slider.isBrushing then
-        subBrushing
+subscriptions { brushing } =
+    case brushing of
+        Just _ ->
+            subBrushing
 
-    else
-        Sub.none
+        Nothing ->
+            Sub.none
 
 
 subBrushing : Sub Msg
@@ -115,7 +137,7 @@ view =
         lightDirection =
             Vector -3 -6 1 |> matrixMultiplyVector cameraMatrix |> vectorNormalize
     in
-    \{ seedFaces, truncation, bitruncation, slider } ->
+    \{ seedFaces, truncation, bitruncation, slider, brushing } ->
         let
             faceClass : Int -> String
             faceClass f =
@@ -126,7 +148,7 @@ view =
                     "face b"
 
             t =
-                Slider.value slider * 2
+                Slider.value brushing slider * 2
 
             mesh =
                 if t <= 1.0 then
@@ -165,7 +187,7 @@ view =
                 , Svg.g
                     [ Svg.Attributes.transform "translate(70, 440) "
                     ]
-                    [ Slider.view BrushStarted slider
+                    [ Slider.view BrushStarted brushing slider
                     ]
                 ]
             ]

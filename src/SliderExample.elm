@@ -14,7 +14,7 @@ import Svg.Events
 main : Program () Model Msg
 main =
     Browser.document
-        { init = \_ -> ( Slider.init 300 0.5, Cmd.none )
+        { init = \_ -> ( initialModel, Cmd.none )
         , update = update
         , view = view
         , subscriptions = subscriptions
@@ -22,7 +22,16 @@ main =
 
 
 type alias Model =
-    Slider
+    { slider : Slider
+    , brushing : Maybe Brush
+    }
+
+
+initialModel : Model
+initialModel =
+    { slider = Slider.init 300 0.5
+    , brushing = Nothing
+    }
 
 
 
@@ -35,6 +44,12 @@ type Msg
     | BrushEnded
 
 
+type alias Brush =
+    { from : Point2D
+    , to : Point2D
+    }
+
+
 type alias Point2D =
     { x : Float
     , y : Float
@@ -42,16 +57,28 @@ type alias Point2D =
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg slider =
+update msg model =
     ( case msg of
         BrushStarted point ->
-            slider |> Slider.brushStart point
+            { model | brushing = Just { from = point, to = point } }
 
         BrushMoved point ->
-            slider |> Slider.brushMove point
+            case model.brushing of
+                Just { from } ->
+                    { model | brushing = Just { from = from, to = point } }
+
+                Nothing ->
+                    model
 
         BrushEnded ->
-            slider |> Slider.brushEnd
+            case model.brushing of
+                Just brush ->
+                    { slider = model.slider |> Slider.applyBrush brush
+                    , brushing = Nothing
+                    }
+
+                Nothing ->
+                    model
     , Cmd.none
     )
 
@@ -61,12 +88,13 @@ update msg slider =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions slider =
-    if slider |> Slider.isBrushing then
-        subBrushing
+subscriptions { brushing } =
+    case brushing of
+        Just _ ->
+            subBrushing
 
-    else
-        Sub.none
+        Nothing ->
+            Sub.none
 
 
 subBrushing : Sub Msg
@@ -90,7 +118,7 @@ decodeMousePosition =
 
 
 view : Model -> Browser.Document Msg
-view slider =
+view { brushing, slider } =
     Browser.Document
         "Slider"
         [ Html.node "link"
@@ -105,7 +133,7 @@ view slider =
             [ Svg.g
                 [ Svg.Attributes.transform "translate(100, 450) "
                 ]
-                [ Slider.view BrushStarted slider
+                [ Slider.view BrushStarted brushing slider
                 ]
             ]
         ]

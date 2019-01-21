@@ -1,4 +1,4 @@
-module Slider exposing (Slider, brushEnd, brushMove, brushStart, init, isBrushing, value, view)
+module Slider exposing (Slider, applyBrush, init, value, view)
 
 import Json.Decode as Decode exposing (Decoder)
 import Svg exposing (Svg)
@@ -7,38 +7,15 @@ import Svg.Events
 
 
 type alias Slider =
-    { brushing : Maybe Float
-    , length : Float
+    { length : Float
     , val : Float
     }
 
 
-init : Float -> Float -> Slider
-init =
-    Slider Nothing
-
-
-
--- query
-
-
-value : Slider -> Float
-value { val } =
-    val
-
-
-isBrushing : Slider -> Bool
-isBrushing { brushing } =
-    case brushing of
-        Just _ ->
-            True
-
-        Nothing ->
-            False
-
-
-
--- update actions
+type alias Brush =
+    { from : Point2D
+    , to : Point2D
+    }
 
 
 type alias Point2D =
@@ -47,44 +24,56 @@ type alias Point2D =
     }
 
 
-brushStart : Point2D -> Slider -> Slider
-brushStart { x } { length, val } =
-    Slider (Just (val * length - x)) length val
+init : Float -> Float -> Slider
+init =
+    Slider
 
 
-brushMove : Point2D -> Slider -> Slider
-brushMove { x } ({ length, brushing } as slider) =
-    case brushing of
-        Just offset ->
-            Slider brushing length (clamp 0 1 ((x + offset) / length))
+valueWithBrush : Brush -> Slider -> Float
+valueWithBrush { from, to } { length, val } =
+    let
+        valDelta =
+            (to.x - from.x) / length
+    in
+    clamp 0 1 (val + valDelta)
+
+
+value : Maybe Brush -> Slider -> Float
+value maybeBrush slider =
+    case maybeBrush of
+        Just brush ->
+            valueWithBrush brush slider
 
         Nothing ->
-            slider
+            slider.val
 
 
-brushEnd : Slider -> Slider
-brushEnd { length, val } =
-    Slider Nothing length val
+applyBrush : Brush -> Slider -> Slider
+applyBrush brush slider =
+    { length = slider.length
+    , val = valueWithBrush brush slider
+    }
 
 
 
 -- view
 
 
-view : (Point2D -> msg) -> Slider -> Svg msg
-view tagger ({ length, val } as slider) =
+view : (Point2D -> msg) -> Maybe Brush -> Slider -> Svg msg
+view tagger maybeBrush ({ length } as slider) =
     let
         xPosition =
-            String.fromFloat (val * length)
+            String.fromFloat (value maybeBrush slider * length)
     in
     Svg.g
         [ Svg.Attributes.class <|
             "slider"
-                ++ (if slider |> isBrushing then
-                        " pressed"
+                ++ (case maybeBrush of
+                        Just _ ->
+                            " pressed"
 
-                    else
-                        ""
+                        Nothing ->
+                            ""
                    )
         ]
         [ Svg.line
