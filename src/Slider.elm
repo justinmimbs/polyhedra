@@ -1,26 +1,13 @@
 module Slider exposing (Slider, applyBrush, init, value, view)
 
-import Json.Decode as Decode exposing (Decoder)
+import Brush exposing (Brush, Point2D)
 import Svg exposing (Svg)
 import Svg.Attributes
-import Svg.Events
 
 
 type alias Slider =
     { length : Float
     , val : Float
-    }
-
-
-type alias Brush =
-    { from : Point2D
-    , to : Point2D
-    }
-
-
-type alias Point2D =
-    { x : Float
-    , y : Float
     }
 
 
@@ -60,7 +47,7 @@ applyBrush brush slider =
 
 
 view : (Point2D -> msg) -> Maybe Brush -> Slider -> Svg msg
-view tagger maybeBrush ({ length } as slider) =
+view brushStarted maybeBrush ({ length } as slider) =
     let
         xPosition =
             String.fromFloat (value maybeBrush slider * length)
@@ -103,9 +90,7 @@ view tagger maybeBrush ({ length } as slider) =
             , Svg.Attributes.cx xPosition
             , Svg.Attributes.cy "0"
             , Svg.Attributes.r "15"
-            , Svg.Events.preventDefaultOn
-                "mousedown"
-                (decodeMousePosition |> Decode.map (\point -> ( tagger point, True )))
+            , Brush.onStart brushStarted
             ]
             []
         , Svg.circle
@@ -116,10 +101,3 @@ view tagger maybeBrush ({ length } as slider) =
             ]
             []
         ]
-
-
-decodeMousePosition : Decoder Point2D
-decodeMousePosition =
-    Decode.map2 Point2D
-        (Decode.field "pageX" Decode.float)
-        (Decode.field "pageY" Decode.float)

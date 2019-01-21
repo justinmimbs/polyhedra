@@ -1,12 +1,11 @@
 module Main exposing (main)
 
 import Browser
-import Browser.Events
+import Brush exposing (Brush, Point2D)
 import Dict exposing (Dict)
 import Geometry exposing (..)
 import Html exposing (Html)
 import Html.Attributes
-import Json.Decode as Decode exposing (Decoder)
 import Mesh exposing (Mesh, SuperMesh, faceNormal, faceToPolygon, reify)
 import Polyhedron exposing (bitruncate, cube, dodecahedron, icosahedron, octahedron, tetrahedron, truncate)
 import Set exposing (Set)
@@ -44,18 +43,6 @@ init polyhedron =
     }
 
 
-type alias Brush =
-    { from : Point2D
-    , to : Point2D
-    }
-
-
-type alias Point2D =
-    { x : Float
-    , y : Float
-    }
-
-
 
 -- update
 
@@ -70,15 +57,10 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         BrushStarted point ->
-            { model | brushing = Just { from = point, to = point } }
+            { model | brushing = Just (Brush.init point) }
 
         BrushMoved point ->
-            case model.brushing of
-                Just { from } ->
-                    { model | brushing = Just { from = from, to = point } }
-
-                Nothing ->
-                    model
+            { model | brushing = model.brushing |> Maybe.map (Brush.update point) }
 
         BrushEnded ->
             case model.brushing of
@@ -97,29 +79,18 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { brushing } =
-    case brushing of
-        Just _ ->
-            subBrushing
+subscriptions =
+    let
+        brushSubscriptions =
+            Brush.subscriptions BrushMoved BrushEnded
+    in
+    \{ brushing } ->
+        case brushing of
+            Just _ ->
+                brushSubscriptions
 
-        Nothing ->
-            Sub.none
-
-
-subBrushing : Sub Msg
-subBrushing =
-    Sub.batch
-        [ Browser.Events.onMouseMove (Decode.map BrushMoved decodeMousePosition)
-        , Browser.Events.onMouseUp (Decode.succeed BrushEnded)
-        , Browser.Events.onVisibilityChange (always BrushEnded)
-        ]
-
-
-decodeMousePosition : Decoder Point2D
-decodeMousePosition =
-    Decode.map2 Point2D
-        (Decode.field "pageX" Decode.float)
-        (Decode.field "pageY" Decode.float)
+            Nothing ->
+                Sub.none
 
 
 

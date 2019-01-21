@@ -1,19 +1,17 @@
 module RotationExample exposing (main)
 
 import Browser
-import Browser.Events
+import Brush exposing (Brush, Point2D)
 import Dict exposing (Dict)
 import Geometry exposing (..)
 import Html exposing (Html)
 import Html.Attributes
-import Json.Decode as Decode exposing (Decoder)
 import Mesh exposing (Mesh, SuperMesh, faceNormal, faceToPolygon, reify)
 import Polyhedron exposing (cube)
 import Set exposing (Set)
 import Slider exposing (Slider)
 import Svg exposing (Svg)
 import Svg.Attributes
-import Svg.Events
 
 
 main : Program () Model Msg
@@ -32,18 +30,6 @@ type alias Model =
     }
 
 
-type alias Brush =
-    { from : Point2D
-    , to : Point2D
-    }
-
-
-type alias Point2D =
-    { x : Float
-    , y : Float
-    }
-
-
 
 -- update
 
@@ -58,15 +44,10 @@ update : Msg -> Model -> Model
 update msg ({ orientation, brushing } as model) =
     case msg of
         BrushStarted point ->
-            { model | brushing = Just { from = point, to = point } }
+            { model | brushing = Just (Brush.init point) }
 
         BrushMoved point ->
-            case brushing of
-                Just { from } ->
-                    { model | brushing = Just { from = from, to = point } }
-
-                Nothing ->
-                    model
+            { model | brushing = model.brushing |> Maybe.map (Brush.update point) }
 
         BrushEnded ->
             { orientation = orientation |> orientationWithBrushing brushing
@@ -107,29 +88,18 @@ orientationWithBrushing brushing orientation =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions { brushing } =
-    case brushing of
-        Just _ ->
-            subBrushing
+subscriptions =
+    let
+        brushSubscriptions =
+            Brush.subscriptions BrushMoved BrushEnded
+    in
+    \{ brushing } ->
+        case brushing of
+            Just _ ->
+                brushSubscriptions
 
-        Nothing ->
-            Sub.none
-
-
-subBrushing : Sub Msg
-subBrushing =
-    Sub.batch
-        [ Browser.Events.onMouseMove (Decode.map BrushMoved decodeMousePosition)
-        , Browser.Events.onMouseUp (Decode.succeed BrushEnded)
-        , Browser.Events.onVisibilityChange (always BrushEnded)
-        ]
-
-
-decodeMousePosition : Decoder Point2D
-decodeMousePosition =
-    Decode.map2 Point2D
-        (Decode.field "pageX" Decode.float)
-        (Decode.field "pageY" Decode.float)
+            Nothing ->
+                Sub.none
 
 
 
@@ -180,9 +150,7 @@ view =
                         , Svg.Attributes.cy "0"
                         , Svg.Attributes.r "160"
                         , Svg.Attributes.opacity "0"
-                        , Svg.Events.preventDefaultOn
-                            "mousedown"
-                            (decodeMousePosition |> Decode.map (\point -> ( BrushStarted point, True )))
+                        , Brush.onStart BrushStarted
                         ]
                         []
                     ]
