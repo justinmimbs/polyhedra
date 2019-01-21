@@ -28,7 +28,19 @@ main =
 
 type alias Model =
     { orientation : Quaternion
-    , brushing : Maybe { from : Point2D, to : Point2D }
+    , brushing : Maybe Brush
+    }
+
+
+type alias Brush =
+    { from : Point2D
+    , to : Point2D
+    }
+
+
+type alias Point2D =
+    { x : Float
+    , y : Float
     }
 
 
@@ -42,38 +54,28 @@ type Msg
     | BrushEnded
 
 
-type alias Point2D =
-    { x : Float
-    , y : Float
-    }
-
-
 update : Msg -> Model -> Model
-update msg ({ brushing, orientation } as model) =
+update msg ({ orientation, brushing } as model) =
     case msg of
-        BrushStarted from ->
-            { model | brushing = Just { from = from, to = from } }
+        BrushStarted point ->
+            { model | brushing = Just { from = point, to = point } }
 
-        BrushMoved to ->
+        BrushMoved point ->
             case brushing of
                 Just { from } ->
-                    { model | brushing = Just { from = from, to = to } }
+                    { model | brushing = Just { from = from, to = point } }
 
                 Nothing ->
                     model
 
         BrushEnded ->
-            { model
-                | brushing = Nothing
-                , orientation =
-                    brushing
-                        |> Maybe.map (brushingToRotation >> quaternionMultiply orientation)
-                        |> Maybe.withDefault orientation
+            { orientation = orientation |> orientationWithBrushing brushing
+            , brushing = Nothing
             }
 
 
-brushingToRotation : { from : Point2D, to : Point2D } -> Quaternion
-brushingToRotation { from, to } =
+rotationFromBrush : Brush -> Quaternion
+rotationFromBrush { from, to } =
     let
         dx =
             to.x - from.x
@@ -88,6 +90,16 @@ brushingToRotation { from, to } =
             (sqrt (dx * dx + dy * dy) / 320) * pi
     in
     quaternionFromAxisAngle axis angle
+
+
+orientationWithBrushing : Maybe Brush -> Quaternion -> Quaternion
+orientationWithBrushing brushing orientation =
+    case brushing of
+        Just brush ->
+            quaternionMultiply orientation (rotationFromBrush brush)
+
+        Nothing ->
+            orientation
 
 
 
@@ -138,9 +150,8 @@ view =
     \{ orientation, brushing } ->
         let
             rotationMatrix =
-                brushing
-                    |> Maybe.map (brushingToRotation >> quaternionMultiply orientation)
-                    |> Maybe.withDefault orientation
+                orientation
+                    |> orientationWithBrushing brushing
                     |> quaternionToMatrix
 
             matrix =
