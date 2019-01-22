@@ -7,7 +7,7 @@ import Geometry exposing (..)
 import Html exposing (Html)
 import Html.Attributes
 import Mesh exposing (Mesh, SuperMesh, faceNormal, faceToPolygon, reify)
-import Polyhedron exposing (bitruncate, cube, dodecahedron, icosahedron, octahedron, tetrahedron, truncate)
+import Polyhedron exposing (bitruncate, icosahedron, truncate)
 import Set exposing (Set)
 import Slider exposing (Slider)
 import Svg exposing (Svg)
@@ -24,23 +24,30 @@ main =
         }
 
 
-type alias Model =
-    { seedFaces : Set Int
-    , truncation : SuperMesh
-    , bitruncation : SuperMesh
-    , slider : Slider
-    , brushing : Maybe Brush
-    }
-
-
 init : Mesh -> Model
 init polyhedron =
     { seedFaces = polyhedron.faces |> Dict.keys |> Set.fromList
     , truncation = truncate polyhedron
     , bitruncation = bitruncate polyhedron
+    , orientation = quaternionIdentity
     , slider = Slider.init 260 0
     , brushing = Nothing
     }
+
+
+type alias Model =
+    { seedFaces : Set Int
+    , truncation : SuperMesh
+    , bitruncation : SuperMesh
+    , orientation : Quaternion
+    , slider : Slider
+    , brushing : Maybe ( BrushTarget, Brush )
+    }
+
+
+type BrushTarget
+    = SliderPosition
+    | ObjectRotation
 
 
 
@@ -48,30 +55,54 @@ init polyhedron =
 
 
 type Msg
-    = BrushStarted Point2D
+    = BrushStarted BrushTarget Point2D
     | BrushMoved Point2D
     | BrushEnded
 
 
 update : Msg -> Model -> Model
-update msg model =
+update msg ({ orientation, slider, brushing } as model) =
     case msg of
-        BrushStarted point ->
-            { model | brushing = Just (Brush.init point) }
+        BrushStarted brushTarget point ->
+            { model | brushing = Just ( brushTarget, Brush.init point ) }
 
         BrushMoved point ->
-            { model | brushing = model.brushing |> Maybe.map (Brush.update point) }
+            { model | brushing = brushing |> Maybe.map (Tuple.mapSecond (Brush.update point)) }
 
         BrushEnded ->
-            case model.brushing of
-                Just brush ->
+            case brushing of
+                Just ( SliderPosition, brush ) ->
                     { model
-                        | slider = model.slider |> Slider.applyBrush brush
+                        | slider = slider |> Slider.applyBrush brush
+                        , brushing = Nothing
+                    }
+
+                Just ( ObjectRotation, brush ) ->
+                    { model
+                        | orientation = quaternionMultiply orientation (rotationFromBrush brush)
                         , brushing = Nothing
                     }
 
                 Nothing ->
                     model
+
+
+rotationFromBrush : Brush -> Quaternion
+rotationFromBrush { from, to } =
+    let
+        dx =
+            to.x - from.x
+
+        dy =
+            to.y - from.y
+
+        axis =
+            Vector -dy -dx 0 |> vectorNormalize
+
+        angle =
+            (sqrt (dx * dx + dy * dy) / 320) * pi
+    in
+    quaternionFromAxisAngle axis angle
 
 
 
@@ -107,19 +138,27 @@ view =
         lightDirection : Vector
         lightDirection =
             Vector -3 -6 1 |> matrixMultiplyVector cameraMatrix |> vectorNormalize
-    in
-    \{ seedFaces, truncation, bitruncation, slider, brushing } ->
-        let
-            faceClass : Int -> String
-            faceClass f =
-                if Set.member f seedFaces then
-                    "face a"
 
-                else
-                    "face b"
+        faceClass : Set Int -> Int -> String
+        faceClass faces f =
+            if Set.member f faces then
+                "face a"
+
+            else
+                "face b"
+    in
+    \{ seedFaces, truncation, bitruncation, orientation, slider, brushing } ->
+        let
+            sliderBrushing =
+                case brushing of
+                    Just ( SliderPosition, brush ) ->
+                        Just brush
+
+                    _ ->
+                        Nothing
 
             t =
-                Slider.value brushing slider * 2
+                Slider.value sliderBrushing slider * 2
 
             mesh =
                 if t <= 1.0 then
@@ -133,8 +172,19 @@ view =
                     |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
                     |> sqrt
 
+            rotationMatrix =
+                (case brushing of
+                    Just ( ObjectRotation, brush ) ->
+                        quaternionMultiply orientation (rotationFromBrush brush)
+
+                    _ ->
+                        orientation
+                )
+                    |> quaternionToMatrix
+
             matrix =
-                cameraMatrix |> matrixScale (160 / radius)
+                matrixMultiply cameraMatrix rotationMatrix
+                    |> matrixScale (160 / radius)
 
             meshTransformed =
                 { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
@@ -153,12 +203,20 @@ view =
                 [ Svg.g
                     [ Svg.Attributes.transform "scale(1, -1) translate(200, -200) "
                     ]
-                    [ viewMesh lightDirection faceClass meshTransformed
+                    [ viewMesh lightDirection (faceClass seedFaces) meshTransformed
+                    , Svg.circle
+                        [ Svg.Attributes.cx "0"
+                        , Svg.Attributes.cy "0"
+                        , Svg.Attributes.r "160"
+                        , Svg.Attributes.opacity "0"
+                        , Brush.onStart (BrushStarted ObjectRotation)
+                        ]
+                        []
                     ]
                 , Svg.g
                     [ Svg.Attributes.transform "translate(70, 440) "
                     ]
-                    [ Slider.view BrushStarted brushing slider
+                    [ Slider.view (BrushStarted SliderPosition) sliderBrushing slider
                     ]
                 ]
             ]
