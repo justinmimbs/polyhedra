@@ -297,7 +297,7 @@ tetrahedron =
         , ( 4, Point 1 1 1 )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ -> vectorScale 100)
+            |> Dict.map (\_ -> vectorScale (1 / sqrt 3))
     , faces =
         [ ( 1, [ 3, 2, 1 ] )
         , ( 2, [ 4, 2, 3 ] )
@@ -321,7 +321,7 @@ cube =
         , ( 8, Point 1 1 1 )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ -> vectorScale 100)
+            |> Dict.map (\_ -> vectorScale (1 / sqrt 3))
     , faces =
         [ ( 1, [ 1, 5, 7, 3 ] )
         , ( 2, [ 1, 3, 4, 2 ] )
@@ -345,7 +345,7 @@ octahedron =
         , ( 6, Point 0 0 1 )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ -> vectorScale 100)
+            |> Dict.map (\_ -> vectorScale 1)
     , faces =
         [ ( 1, [ 4, 1, 5 ] )
         , ( 2, [ 4, 5, 2 ] )
@@ -382,7 +382,7 @@ icosahedron =
         , ( 12, Point 0 phi 1 )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ -> vectorScale 100)
+            |> Dict.map (\_ -> vectorScale (1 / sqrt (phi ^ 2 + 1)))
     , faces =
         [ ( 1, [ 1, 2, 6 ] )
         , ( 2, [ 2, 1, 5 ] )
@@ -439,7 +439,7 @@ dodecahedron =
         , ( 20, Point 0 invPhi phi )
         ]
             |> Dict.fromList
-            |> Dict.map (\_ -> vectorScale 100)
+            |> Dict.map (\_ -> vectorScale (1 / sqrt (invPhi ^ 2 + phi ^ 2)))
     , faces =
         [ ( 1, [ 8, 16, 6, 18, 20 ] )
         , ( 2, [ 8, 20, 4, 10, 12 ] )
