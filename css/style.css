@@ -63,6 +63,12 @@ svg {
     mix-blend-mode: hard-light;
 }
 
+.icon .face {
+    fill: var(--surface);
+    stroke: var(--primary);
+    stroke-opacity: 0.75;
+}
+
 .slider {
     fill: var(--primary);
 }
