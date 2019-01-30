@@ -29,7 +29,10 @@ init polyhedron =
     { seedFaces = polyhedron.faces |> Dict.keys |> Set.fromList
     , truncation = truncate polyhedron
     , bitruncation = bitruncate polyhedron
-    , orientation = quaternionIdentity
+    , orientation =
+        quaternionMultiply
+            (quaternionFromAxisAngle (Vector 0 1 0) (pi / 5.5))
+            (quaternionFromAxisAngle (Vector 1 0 0) (-pi / 6.5))
     , slider = Slider.init 260 0
     , brushing = Nothing
     }
@@ -131,13 +134,9 @@ subscriptions =
 view : Model -> Browser.Document Msg
 view =
     let
-        cameraMatrix : Matrix
-        cameraMatrix =
-            matrixLookAt (Vector 3 3 5) vectorZero
-
         lightDirection : Vector
         lightDirection =
-            Vector -3 -6 1 |> matrixMultiplyVector cameraMatrix |> vectorNormalize
+            Vector -2 -3 -2 |> vectorNormalize
 
         faceClass : Set Int -> Int -> String
         faceClass faces f =
@@ -183,8 +182,7 @@ view =
                     |> quaternionToMatrix
 
             matrix =
-                matrixMultiply cameraMatrix rotationMatrix
-                    |> matrixScale (160 / radius)
+                rotationMatrix |> matrixScale (160 / radius)
 
             meshTransformed =
                 { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }

@@ -12,23 +12,21 @@ import Svg.Attributes
 
 main : Html a
 main =
-    view quaternionIdentity
+    quaternionMultiply
+        (quaternionFromAxisAngle (Vector 0 1 0) (pi / 5.5))
+        (quaternionFromAxisAngle (Vector 1 0 0) (-pi / 6.5))
+        |> view
 
 
 view : Quaternion -> Html a
 view =
-    let
-        cameraMatrix : Matrix
-        cameraMatrix =
-            matrixLookAt (Vector 3 3 5) vectorZero
-    in
     \orientation ->
         let
             rotationMatrix =
                 orientation |> quaternionToMatrix
 
             matrix =
-                matrixMultiply cameraMatrix rotationMatrix |> matrixScale 26
+                rotationMatrix |> matrixScale 26
 
             meshes =
                 [ tetrahedron, cube, octahedron, icosahedron, dodecahedron ]

@@ -260,6 +260,8 @@ quaternionIdentity =
     ( 1, vectorZero )
 
 
+{-| Expect axis to be a unit vector.
+-}
 quaternionFromAxisAngle : Vector -> Float -> Quaternion
 quaternionFromAxisAngle axis angle =
     if angle /= 0 then
