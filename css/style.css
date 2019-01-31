@@ -68,6 +68,9 @@ svg {
     stroke: var(--primary);
     stroke-opacity: 0.75;
 }
+.selected .icon .face {
+    stroke-opacity: 0.2;
+}
 
 .slider {
     fill: var(--primary);
