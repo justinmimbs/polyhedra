@@ -82,7 +82,7 @@ mergeCoincidentVertices ({ vertices, faces } as mesh) =
 
 pointEqual : Point -> Point -> Bool
 pointEqual a b =
-    distanceSquared a b <= 0.000000001
+    distanceSquared a b <= 0.0000001
 
 
 

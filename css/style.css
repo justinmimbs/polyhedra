@@ -72,13 +72,9 @@ svg {
     stroke-opacity: 0.2;
 }
 
-.slider {
-    fill: var(--primary);
-}
-
 .slider line {
     stroke: var(--primary);
-    stroke-width: 2px;
+    stroke-width: 1px;
     stroke-linecap: round;
     opacity: 0.25;
 }
@@ -86,20 +82,15 @@ svg {
     opacity: 0.6;
 }
 
+.slider .thumb {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 1.1;
+    opacity: 0.6;
+}
+.slider.pressed .thumb {
+    opacity: 0.8;
+}
 .slider .thumb-toucharea {
     opacity: 0;
-}
-.slider .thumb-toucharea:hover {
-    opacity: 0.05;
-}
-.slider.pressed .thumb-toucharea {
-    opacity: 0.08;
-}
-
-.slider .thumb-outline {
-    fill: none;
-    stroke: none;
-}
-.slider.pressed .thumb-outline {
-    stroke: var(--surface);
 }

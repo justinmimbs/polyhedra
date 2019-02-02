@@ -62,6 +62,7 @@ view brushStarted maybeBrush ({ length } as slider) =
                         Nothing ->
                             ""
                    )
+        , Svg.Attributes.transform "translate(0, 0.5)"
         ]
         [ Svg.line
             [ Svg.Attributes.x1 xPosition
@@ -82,7 +83,7 @@ view brushStarted maybeBrush ({ length } as slider) =
             [ Svg.Attributes.class "thumb"
             , Svg.Attributes.cx xPosition
             , Svg.Attributes.cy "0"
-            , Svg.Attributes.r "5"
+            , Svg.Attributes.r "11"
             ]
             []
         , Svg.circle
@@ -91,13 +92,6 @@ view brushStarted maybeBrush ({ length } as slider) =
             , Svg.Attributes.cy "0"
             , Svg.Attributes.r "15"
             , Brush.onStart brushStarted
-            ]
-            []
-        , Svg.circle
-            [ Svg.Attributes.class "thumb-outline"
-            , Svg.Attributes.cx xPosition
-            , Svg.Attributes.cy "0"
-            , Svg.Attributes.r "6"
             ]
             []
         ]
