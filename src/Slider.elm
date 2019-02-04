@@ -83,7 +83,7 @@ view brushStarted maybeBrush ({ length } as slider) =
             [ Svg.Attributes.class "thumb"
             , Svg.Attributes.cx xPosition
             , Svg.Attributes.cy "0"
-            , Svg.Attributes.r "11"
+            , Svg.Attributes.r "11.5"
             ]
             []
         , Svg.circle

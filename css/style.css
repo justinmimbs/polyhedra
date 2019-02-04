@@ -1,6 +1,6 @@
 :root {
     --surface: rgb(225, 230, 235);
-    --primary: rgb(70, 70, 70);
+    --primary: rgb(80, 80, 80);
 
     --magenta: rgb(255, 95, 135);
     --cyan: rgb(70, 178, 214);
@@ -66,17 +66,28 @@ svg {
 .icon .face {
     fill: var(--surface);
     stroke: var(--primary);
-    stroke-opacity: 0.75;
+    stroke-opacity: 0.7;
 }
 .selected .icon .face {
     stroke-opacity: 0.2;
+}
+
+.icon circle {
+    fill: var(--primary);
+    opacity: 0.8;
+}
+
+.icon line {
+    stroke: var(--primary);
+    stroke-width: 1.1;
+    opacity: 0.8;
 }
 
 .slider line {
     stroke: var(--primary);
     stroke-width: 1px;
     stroke-linecap: round;
-    opacity: 0.25;
+    opacity: 0.3;
 }
 .slider line.active {
     opacity: 0.6;
@@ -86,10 +97,10 @@ svg {
     fill: none;
     stroke: var(--primary);
     stroke-width: 1.1;
-    opacity: 0.6;
+    opacity: 0.8;
 }
 .slider.pressed .thumb {
-    opacity: 0.8;
+    opacity: 1;
 }
 .slider .thumb-toucharea {
     opacity: 0;

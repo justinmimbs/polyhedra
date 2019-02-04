@@ -47,6 +47,16 @@ view selected =
                 [ Svg.Attributes.transform "scale(1, -1) translate(200, -200) "
                 ]
                 [ viewMenu initialOrientation selected
+                , Svg.g
+                    [ Svg.Attributes.transform "translate(0, -60)"
+                    ]
+                    [ iconEllipsis
+                    ]
+                , Svg.g
+                    [ Svg.Attributes.transform "translate(0, -120)"
+                    ]
+                    [ iconX
+                    ]
                 ]
             ]
         ]
@@ -176,3 +186,48 @@ bool t f x =
 
     else
         f
+
+
+
+-- icons
+
+
+iconEllipsis : Svg a
+iconEllipsis =
+    Svg.g
+        [ Svg.Attributes.class "icon"
+        , Svg.Attributes.transform "translate(0.5, 0.5)"
+        ]
+        ([ -1, 0, 1 ]
+            |> List.map
+                (\i ->
+                    Svg.circle
+                        [ Svg.Attributes.cx <| String.fromInt (i * 7)
+                        , Svg.Attributes.cy "0"
+                        , Svg.Attributes.r "1.5"
+                        ]
+                        []
+                )
+        )
+
+
+iconX : Svg a
+iconX =
+    Svg.g
+        [ Svg.Attributes.class "icon"
+        , Svg.Attributes.transform "translate(0.5, 0.5)"
+        ]
+        [ viewLine ( -7.5, 7.5 ) ( 7.5, -7.5 )
+        , viewLine ( 7.5, 7.5 ) ( -7.5, -7.5 )
+        ]
+
+
+viewLine : ( Float, Float ) -> ( Float, Float ) -> Svg a
+viewLine ( x1, y1 ) ( x2, y2 ) =
+    Svg.line
+        [ Svg.Attributes.x1 <| String.fromFloat x1
+        , Svg.Attributes.y1 <| String.fromFloat y1
+        , Svg.Attributes.x2 <| String.fromFloat x2
+        , Svg.Attributes.y2 <| String.fromFloat y2
+        ]
+        []
