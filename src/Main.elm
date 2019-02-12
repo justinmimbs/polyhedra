@@ -6,8 +6,9 @@ import Dict exposing (Dict)
 import Geometry exposing (..)
 import Html exposing (Html)
 import Html.Attributes
-import Mesh exposing (Mesh, SuperMesh, faceNormal, faceToPolygon, reify)
+import Mesh exposing (Mesh, SuperMesh, reify)
 import Polyhedron exposing (bitruncate, icosahedron, truncate)
+import Render
 import Set exposing (Set)
 import Slider exposing (Slider)
 import Svg exposing (Svg)
@@ -132,157 +133,89 @@ subscriptions =
 
 
 view : Model -> Browser.Document Msg
-view =
+view { seedFaces, truncation, bitruncation, orientation, slider, brushing } =
     let
-        lightDirection : Vector
-        lightDirection =
-            Vector -2 -3 -2 |> vectorNormalize
+        sliderBrushing =
+            case brushing of
+                Just ( SliderPosition, brush ) ->
+                    Just brush
 
-        faceClass : Set Int -> Int -> String
-        faceClass faces f =
-            if Set.member f faces then
-                "face a"
+                _ ->
+                    Nothing
+
+        t =
+            Slider.value sliderBrushing slider * 2
+
+        mesh =
+            if t <= 1.0 then
+                reify t truncation
 
             else
-                "face b"
+                reify (t - 1.0) bitruncation
+
+        radius =
+            mesh.vertices
+                |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
+                |> sqrt
+
+        rotationMatrix =
+            (case brushing of
+                Just ( ObjectRotation, brush ) ->
+                    quaternionMultiply orientation (rotationFromBrush brush)
+
+                _ ->
+                    orientation
+            )
+                |> quaternionToMatrix
+
+        matrix =
+            rotationMatrix |> matrixScale (160 / radius)
+
+        meshTransformed =
+            { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
     in
-    \{ seedFaces, truncation, bitruncation, orientation, slider, brushing } ->
-        let
-            sliderBrushing =
-                case brushing of
-                    Just ( SliderPosition, brush ) ->
-                        Just brush
-
-                    _ ->
-                        Nothing
-
-            t =
-                Slider.value sliderBrushing slider * 2
-
-            mesh =
-                if t <= 1.0 then
-                    reify t truncation
-
-                else
-                    reify (t - 1.0) bitruncation
-
-            radius =
-                mesh.vertices
-                    |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
-                    |> sqrt
-
-            rotationMatrix =
-                (case brushing of
-                    Just ( ObjectRotation, brush ) ->
-                        quaternionMultiply orientation (rotationFromBrush brush)
-
-                    _ ->
-                        orientation
-                )
-                    |> quaternionToMatrix
-
-            matrix =
-                rotationMatrix |> matrixScale (160 / radius)
-
-            meshTransformed =
-                { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
-        in
-        Browser.Document
-            "Polyhedra"
-            [ Html.node "link"
-                [ Html.Attributes.rel "stylesheet"
-                , Html.Attributes.href "../css/style.css"
+    Browser.Document
+        "Polyhedra"
+        [ Html.node "link"
+            [ Html.Attributes.rel "stylesheet"
+            , Html.Attributes.href "../css/style.css"
+            ]
+            []
+        , Svg.svg
+            [ Svg.Attributes.width "400"
+            , Svg.Attributes.height "500"
+            ]
+            [ Svg.g
+                [ Svg.Attributes.transform "translate(200, 200) scale(1 -1)"
                 ]
-                []
-            , Svg.svg
-                [ Svg.Attributes.width "400"
-                , Svg.Attributes.height "500"
+                [ Render.meshFigure lightDirection (faceClass seedFaces) meshTransformed
+                , Svg.circle
+                    [ Svg.Attributes.cx "0"
+                    , Svg.Attributes.cy "0"
+                    , Svg.Attributes.r "160"
+                    , Svg.Attributes.opacity "0"
+                    , Brush.onStart (BrushStarted ObjectRotation)
+                    ]
+                    []
                 ]
-                [ Svg.g
-                    [ Svg.Attributes.transform "scale(1, -1) translate(200, -200) "
-                    ]
-                    [ viewMesh lightDirection (faceClass seedFaces) meshTransformed
-                    , Svg.circle
-                        [ Svg.Attributes.cx "0"
-                        , Svg.Attributes.cy "0"
-                        , Svg.Attributes.r "160"
-                        , Svg.Attributes.opacity "0"
-                        , Brush.onStart (BrushStarted ObjectRotation)
-                        ]
-                        []
-                    ]
-                , Svg.g
-                    [ Svg.Attributes.transform "translate(70, 440) "
-                    ]
-                    [ Slider.view (BrushStarted SliderPosition) sliderBrushing slider
-                    ]
+            , Svg.g
+                [ Svg.Attributes.transform "translate(70, 440) "
+                ]
+                [ Slider.view (BrushStarted SliderPosition) sliderBrushing slider
                 ]
             ]
+        ]
 
 
-viewMesh : Vector -> (Int -> String) -> Mesh -> Svg a
-viewMesh lightDirection faceClass { vertices, faces } =
-    let
-        ( backFaces, frontFaces, lumaFaces ) =
-            faces
-                |> Dict.foldl
-                    (\f face ( backs, fronts, luma ) ->
-                        let
-                            polygon =
-                                face |> faceToPolygon vertices
-
-                            faceView =
-                                polygon |> viewPolygon [] (faceClass f)
-                        in
-                        if polygon |> polygonIsClockwise then
-                            let
-                                -- range [-1, 1], where -1 is facing toward light, 0 is perpendicular, and 1 is facing away
-                                alpha =
-                                    vectorDot lightDirection (faceNormal polygon)
-
-                                lumaView =
-                                    if alpha <= 0 then
-                                        viewPolygon
-                                            [ Svg.Attributes.opacity <| String.fromFloat ((0 - alpha) ^ 2) ]
-                                            "light"
-                                            polygon
-
-                                    else
-                                        viewPolygon
-                                            [ Svg.Attributes.opacity <| String.fromFloat (alpha ^ 2) ]
-                                            "dark"
-                                            polygon
-                            in
-                            ( backs, faceView :: fronts, lumaView :: luma )
-
-                        else
-                            ( faceView :: backs, fronts, luma )
-                    )
-                    ( [], [], [] )
-    in
-    Svg.g
-        []
-        (backFaces ++ frontFaces ++ lumaFaces)
+lightDirection : Vector
+lightDirection =
+    Vector -2 -3 -2 |> vectorNormalize
 
 
-viewPolygon : List (Svg.Attribute a) -> String -> Polygon -> Svg a
-viewPolygon attributes class points =
-    Svg.polygon
-        (attributes
-            ++ [ Svg.Attributes.class class
-               , Svg.Attributes.points (points |> pointsToString)
-               ]
-        )
-        []
+faceClass : Set Int -> Int -> String
+faceClass faces f =
+    if Set.member f faces then
+        "face a"
 
-
-pointsToString : List Point -> String
-pointsToString =
-    List.foldl
-        (\p result -> result ++ " " ++ pointToString p)
-        ""
-
-
-pointToString : Point -> String
-pointToString { x, y } =
-    String.fromFloat x ++ "," ++ String.fromFloat y
+    else
+        "face b"

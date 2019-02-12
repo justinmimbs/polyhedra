@@ -5,8 +5,9 @@ import Dict exposing (Dict)
 import Geometry exposing (..)
 import Html exposing (Html)
 import Html.Attributes
-import Mesh exposing (Mesh, faceNormal, faceToPolygon)
+import Mesh exposing (Mesh)
 import Polyhedron exposing (cube, dodecahedron, icosahedron, octahedron, tetrahedron)
+import Render
 import Svg exposing (Svg)
 import Svg.Attributes
 import Svg.Events
@@ -111,7 +112,7 @@ viewMenu orientation selected =
                     [ Svg.Attributes.class (polyhedron == selected |> bool "selected" "")
                     , Svg.Attributes.transform <| "translate(" ++ String.fromInt (-120 + (i * 60)) ++ ", 26) "
                     ]
-                    [ viewMeshIcon
+                    [ Render.meshIcon
                         { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
                     , Svg.rect
                         [ Svg.Attributes.x "-24"
@@ -126,57 +127,6 @@ viewMenu orientation selected =
             )
             polyhedronList
         )
-
-
-viewMeshIcon : Mesh -> Svg a
-viewMeshIcon { vertices, faces } =
-    let
-        ( backFaces, frontFaces ) =
-            faces
-                |> Dict.foldl
-                    (\f face ( backs, fronts ) ->
-                        let
-                            polygon =
-                                face |> faceToPolygon vertices
-
-                            faceView =
-                                polygon |> viewPolygon [] "face"
-                        in
-                        if polygon |> polygonIsClockwise then
-                            ( backs, faceView :: fronts )
-
-                        else
-                            ( faceView :: backs, fronts )
-                    )
-                    ( [], [] )
-    in
-    Svg.g
-        [ Svg.Attributes.class "icon"
-        ]
-        (backFaces ++ frontFaces)
-
-
-viewPolygon : List (Svg.Attribute a) -> String -> Polygon -> Svg a
-viewPolygon attributes class points =
-    Svg.polygon
-        (attributes
-            ++ [ Svg.Attributes.class class
-               , Svg.Attributes.points (points |> pointsToString)
-               ]
-        )
-        []
-
-
-pointsToString : List Point -> String
-pointsToString =
-    List.foldl
-        (\p result -> result ++ " " ++ pointToString p)
-        ""
-
-
-pointToString : Point -> String
-pointToString { x, y } =
-    String.fromFloat x ++ "," ++ String.fromFloat y
 
 
 bool : a -> a -> Bool -> a
