@@ -97,8 +97,17 @@ polyhedronMesh polyhedron =
 viewMenu : Quaternion -> Polyhedron -> Svg Polyhedron
 viewMenu orientation selected =
     let
+        iconSize =
+            44.0
+
+        iconSpacing =
+            60.0
+
+        offsetX =
+            toFloat (List.length polyhedronList - 1) * iconSpacing / -2
+
         matrix =
-            orientation |> quaternionToMatrix |> matrixScale 26
+            orientation |> quaternionToMatrix |> matrixScale (iconSize / 2)
     in
     Svg.g
         []
@@ -110,15 +119,16 @@ viewMenu orientation selected =
                 in
                 Svg.g
                     [ Svg.Attributes.class (polyhedron == selected |> bool "selected" "")
-                    , Svg.Attributes.transform <| "translate(" ++ String.fromInt (-120 + (i * 60)) ++ ", 26) "
+                    , Svg.Attributes.transform
+                        ("translate(" ++ String.fromFloat (offsetX + (toFloat i * iconSpacing)) ++ " 0)")
                     ]
                     [ Render.meshIcon
                         { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
                     , Svg.rect
-                        [ Svg.Attributes.x "-24"
-                        , Svg.Attributes.y "-24"
-                        , Svg.Attributes.width "48"
-                        , Svg.Attributes.height "48"
+                        [ Svg.Attributes.x <| String.fromFloat (iconSize / -2)
+                        , Svg.Attributes.y <| String.fromFloat (iconSize / -2)
+                        , Svg.Attributes.width <| String.fromFloat iconSize
+                        , Svg.Attributes.height <| String.fromFloat iconSize
                         , Svg.Attributes.opacity "0"
                         , Svg.Events.onClick polyhedron
                         ]
