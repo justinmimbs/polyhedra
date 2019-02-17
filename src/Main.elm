@@ -7,9 +7,8 @@ import Geometry exposing (..)
 import Html exposing (Html)
 import Html.Attributes
 import Mesh exposing (Mesh, SuperMesh, reify)
-import Polyhedron exposing (bitruncate, icosahedron, truncate)
+import Polyhedron exposing (bitruncate, cube, dodecahedron, icosahedron, octahedron, tetrahedron, truncate)
 import Render
-import Set exposing (Set)
 import Slider exposing (Slider)
 import Svg exposing (Svg)
 import Svg.Attributes
@@ -18,18 +17,16 @@ import Svg.Attributes
 main : Program () Model Msg
 main =
     Browser.document
-        { init = \_ -> ( init icosahedron, Cmd.none )
+        { init = \_ -> ( init Icosahedron, Cmd.none )
         , update = \msg model -> ( update msg model, Cmd.none )
         , view = view
         , subscriptions = subscriptions
         }
 
 
-init : Mesh -> Model
+init : Polyhedron -> Model
 init polyhedron =
-    { seedFaces = polyhedron.faces |> Dict.keys |> Set.fromList
-    , truncation = truncate polyhedron
-    , bitruncation = bitruncate polyhedron
+    { selected = polyhedron
     , orientation =
         quaternionMultiply
             (quaternionFromAxisAngle (Vector 0 1 0) (pi / 5.5))
@@ -40,9 +37,7 @@ init polyhedron =
 
 
 type alias Model =
-    { seedFaces : Set Int
-    , truncation : SuperMesh
-    , bitruncation : SuperMesh
+    { selected : Polyhedron
     , orientation : Quaternion
     , slider : Slider
     , brushing : Maybe ( BrushTarget, Brush )
@@ -52,6 +47,50 @@ type alias Model =
 type BrushTarget
     = SliderPosition
     | ObjectRotation
+
+
+type Polyhedron
+    = Tetrahedron
+    | Cube
+    | Octahedron
+    | Icosahedron
+    | Dodecahedron
+
+
+polyhedronData : Polyhedron -> { name : String, mesh : Mesh, truncation : SuperMesh, bitruncation : SuperMesh }
+polyhedronData =
+    let
+        toData name mesh =
+            { name = name
+            , mesh = mesh
+            , truncation = truncate mesh
+            , bitruncation = bitruncate mesh
+            }
+
+        data =
+            { tetrahedron = toData "tetrahedron" tetrahedron
+            , cube = toData "cube" cube
+            , octahedron = toData "octahedron" octahedron
+            , icosahedron = toData "icosahedron" icosahedron
+            , dodecahedron = toData "dodecahedron" dodecahedron
+            }
+    in
+    \polyhedron ->
+        case polyhedron of
+            Tetrahedron ->
+                data.tetrahedron
+
+            Cube ->
+                data.cube
+
+            Octahedron ->
+                data.octahedron
+
+            Icosahedron ->
+                data.icosahedron
+
+            Dodecahedron ->
+                data.dodecahedron
 
 
 
@@ -133,7 +172,7 @@ subscriptions =
 
 
 view : Model -> Browser.Document Msg
-view { seedFaces, truncation, bitruncation, orientation, slider, brushing } =
+view { selected, orientation, slider, brushing } =
     let
         sliderBrushing =
             case brushing of
@@ -146,12 +185,15 @@ view { seedFaces, truncation, bitruncation, orientation, slider, brushing } =
         t =
             Slider.value sliderBrushing slider * 2
 
+        data =
+            polyhedronData selected
+
         mesh =
             if t <= 1.0 then
-                reify t truncation
+                reify t data.truncation
 
             else
-                reify (t - 1.0) bitruncation
+                reify (t - 1.0) data.bitruncation
 
         radius =
             mesh.vertices
@@ -188,7 +230,7 @@ view { seedFaces, truncation, bitruncation, orientation, slider, brushing } =
             [ Svg.g
                 [ Svg.Attributes.transform "translate(200, 200) scale(1 -1)"
                 ]
-                [ Render.meshFigure lightDirection (faceClass seedFaces) meshTransformed
+                [ Render.meshFigure lightDirection (faceClass data.mesh.faces) meshTransformed
                 , Svg.circle
                     [ Svg.Attributes.cx "0"
                     , Svg.Attributes.cy "0"
@@ -212,9 +254,9 @@ lightDirection =
     Vector -2 -3 -2 |> vectorNormalize
 
 
-faceClass : Set Int -> Int -> String
+faceClass : Dict Int a -> Int -> String
 faceClass faces f =
-    if Set.member f faces then
+    if Dict.member f faces then
         "face a"
 
     else
