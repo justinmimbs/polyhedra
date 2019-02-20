@@ -12,6 +12,7 @@ import Render
 import Slider exposing (Slider)
 import Svg exposing (Svg)
 import Svg.Attributes
+import Svg.Events
 
 
 main : Program () Model Msg
@@ -31,8 +32,9 @@ init polyhedron =
         quaternionMultiply
             (quaternionFromAxisAngle (Vector 0 1 0) (pi / 5.5))
             (quaternionFromAxisAngle (Vector 1 0 0) (-pi / 6.5))
-    , slider = Slider.init 260 0
+    , slider = Slider.init layout.sliderLength 0
     , brushing = Nothing
+    , mode = Transform
     }
 
 
@@ -41,12 +43,8 @@ type alias Model =
     , orientation : Quaternion
     , slider : Slider
     , brushing : Maybe ( BrushTarget, Brush )
+    , mode : Mode
     }
-
-
-type BrushTarget
-    = SliderPosition
-    | ObjectRotation
 
 
 type Polyhedron
@@ -55,6 +53,25 @@ type Polyhedron
     | Octahedron
     | Icosahedron
     | Dodecahedron
+
+
+type BrushTarget
+    = SliderPosition
+    | ObjectRotation
+
+
+type Mode
+    = Transform
+    | Select
+
+
+
+-- polyhedron
+
+
+polyhedronList : List Polyhedron
+polyhedronList =
+    [ Tetrahedron, Cube, Octahedron, Icosahedron, Dodecahedron ]
 
 
 polyhedronData : Polyhedron -> { name : String, mesh : Mesh, truncation : SuperMesh, bitruncation : SuperMesh }
@@ -101,6 +118,8 @@ type Msg
     = BrushStarted BrushTarget Point2D
     | BrushMoved Point2D
     | BrushEnded
+    | ModeSelected Mode
+    | PolyhedronSelected Polyhedron
 
 
 update : Msg -> Model -> Model
@@ -129,6 +148,12 @@ update msg ({ orientation, slider, brushing } as model) =
                 Nothing ->
                     model
 
+        ModeSelected mode ->
+            { model | mode = mode }
+
+        PolyhedronSelected polyhedron ->
+            { model | selected = polyhedron }
+
 
 rotationFromBrush : Brush -> Quaternion
 rotationFromBrush { from, to } =
@@ -143,7 +168,8 @@ rotationFromBrush { from, to } =
             Vector -dy -dx 0 |> vectorNormalize
 
         angle =
-            (sqrt (dx * dx + dy * dy) / 320) * pi
+            -- brushing a distance of the figure diameter gives a half-circle rotation
+            (sqrt (dx * dx + dy * dy) / (layout.figureRadius * 2)) * pi
     in
     quaternionFromAxisAngle axis angle
 
@@ -171,82 +197,10 @@ subscriptions =
 -- view
 
 
-view : Model -> Browser.Document Msg
-view { selected, orientation, slider, brushing } =
-    let
-        sliderBrushing =
-            case brushing of
-                Just ( SliderPosition, brush ) ->
-                    Just brush
-
-                _ ->
-                    Nothing
-
-        t =
-            Slider.value sliderBrushing slider * 2
-
-        data =
-            polyhedronData selected
-
-        mesh =
-            if t <= 1.0 then
-                reify t data.truncation
-
-            else
-                reify (t - 1.0) data.bitruncation
-
-        radius =
-            mesh.vertices
-                |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
-                |> sqrt
-
-        rotationMatrix =
-            (case brushing of
-                Just ( ObjectRotation, brush ) ->
-                    quaternionMultiply orientation (rotationFromBrush brush)
-
-                _ ->
-                    orientation
-            )
-                |> quaternionToMatrix
-
-        matrix =
-            rotationMatrix |> matrixScale (160 / radius)
-
-        meshTransformed =
-            { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
-    in
-    Browser.Document
-        "Polyhedra"
-        [ Html.node "link"
-            [ Html.Attributes.rel "stylesheet"
-            , Html.Attributes.href "../css/style.css"
-            ]
-            []
-        , Svg.svg
-            [ Svg.Attributes.width "400"
-            , Svg.Attributes.height "500"
-            ]
-            [ Svg.g
-                [ Svg.Attributes.transform "translate(200, 200) scale(1 -1)"
-                ]
-                [ Render.meshFigure lightDirection (faceClass data.mesh.faces) meshTransformed
-                , Svg.circle
-                    [ Svg.Attributes.cx "0"
-                    , Svg.Attributes.cy "0"
-                    , Svg.Attributes.r "160"
-                    , Svg.Attributes.opacity "0"
-                    , Brush.onStart (BrushStarted ObjectRotation)
-                    ]
-                    []
-                ]
-            , Svg.g
-                [ Svg.Attributes.transform "translate(70, 440) "
-                ]
-                [ Slider.view (BrushStarted SliderPosition) sliderBrushing slider
-                ]
-            ]
-        ]
+layout =
+    { sliderLength = 240.0
+    , figureRadius = 160.0
+    }
 
 
 lightDirection : Vector
@@ -261,3 +215,266 @@ faceClass faces f =
 
     else
         "face b"
+
+
+view : Model -> Browser.Document Msg
+view { selected, orientation, slider, brushing, mode } =
+    let
+        spacing =
+            70.0
+
+        rotationMatrix =
+            (case brushing of
+                Just ( ObjectRotation, brush ) ->
+                    quaternionMultiply orientation (rotationFromBrush brush)
+
+                _ ->
+                    orientation
+            )
+                |> quaternionToMatrix
+
+        sliderBrushing =
+            case brushing of
+                Just ( SliderPosition, brush ) ->
+                    Just brush
+
+                _ ->
+                    Nothing
+
+        t =
+            Slider.value sliderBrushing slider * 2
+    in
+    Browser.Document
+        "Polyhedra"
+        [ Html.node "link"
+            [ Html.Attributes.rel "stylesheet"
+            , Html.Attributes.href "../css/style.css"
+            ]
+            []
+        , Svg.svg
+            [ Svg.Attributes.width "400"
+            , Svg.Attributes.height "500"
+            , Svg.Attributes.viewBox "-200 -180 400 500"
+            , Svg.Attributes.preserveAspectRatio "xMidYMid slice"
+            ]
+            [ viewFigure rotationMatrix t selected
+            , case mode of
+                Transform ->
+                    Svg.g
+                        [ translate 0 (layout.figureRadius + spacing)
+                        ]
+                        [ Svg.g
+                            [ translate (layout.sliderLength / -2) 0
+                            ]
+                            [ Slider.view (BrushStarted SliderPosition) sliderBrushing slider
+                            ]
+                        , if t == 0 then
+                            Svg.g
+                                [ translate 0 spacing
+                                ]
+                                [ iconEllipsis
+                                , viewRect
+                                    [ Svg.Attributes.opacity "0"
+                                    , Svg.Events.onClick (ModeSelected Select)
+                                    ]
+                                    (centeredSquare 40)
+                                ]
+
+                          else
+                            Svg.text ""
+                        ]
+
+                Select ->
+                    Svg.g
+                        [ translate 0 (layout.figureRadius + spacing)
+                        ]
+                        [ viewMenu rotationMatrix selected
+                        , Svg.g
+                            [ translate 0 spacing
+                            ]
+                            [ iconX
+                            , viewRect
+                                [ Svg.Attributes.opacity "0"
+                                , Svg.Events.onClick (ModeSelected Transform)
+                                ]
+                                (centeredSquare 40)
+                            ]
+                        ]
+            ]
+        ]
+
+
+viewFigure : Matrix -> Float -> Polyhedron -> Svg Msg
+viewFigure rotationMatrix t polyhedron =
+    let
+        data =
+            polyhedron |> polyhedronData
+
+        mesh =
+            if t <= 1.0 then
+                reify t data.truncation
+
+            else
+                reify (t - 1.0) data.bitruncation
+
+        radius =
+            mesh.vertices
+                |> Dict.foldl (\_ p -> max (vectorLengthSquared p)) 0
+                |> sqrt
+
+        matrix =
+            rotationMatrix |> matrixScale (layout.figureRadius / radius)
+
+        meshTransformed =
+            { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
+    in
+    Svg.g
+        [ Svg.Attributes.transform "scale(1 -1)"
+        ]
+        [ Render.meshFigure lightDirection (faceClass data.mesh.faces) meshTransformed
+        , Svg.circle
+            [ Svg.Attributes.cx "0"
+            , Svg.Attributes.cy "0"
+            , Svg.Attributes.r <| String.fromFloat layout.figureRadius
+            , Svg.Attributes.opacity "0"
+            , Brush.onStart (BrushStarted ObjectRotation)
+            ]
+            []
+        ]
+
+
+viewMenu : Matrix -> Polyhedron -> Svg Msg
+viewMenu rotationMatrix selected =
+    let
+        iconSize =
+            44.0
+
+        iconSpacing =
+            60.0
+
+        offsetX =
+            toFloat (List.length polyhedronList - 1) * iconSpacing / -2
+
+        matrix =
+            rotationMatrix |> matrixScale (iconSize / 2)
+    in
+    Svg.g
+        []
+        (List.indexedMap
+            (\i polyhedron ->
+                let
+                    { mesh } =
+                        polyhedron |> polyhedronData
+
+                    x =
+                        offsetX + (toFloat i * iconSpacing)
+                in
+                Svg.g
+                    [ Svg.Attributes.class (polyhedron == selected |> bool "selected" "")
+                    , Svg.Attributes.transform
+                        ("translate(" ++ String.fromFloat x ++ " 0) scale(1, -1)")
+                    ]
+                    [ Render.meshIcon
+                        { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
+                    , viewRect
+                        [ Svg.Attributes.opacity "0"
+                        , Svg.Events.onClick (PolyhedronSelected polyhedron)
+                        ]
+                        (centeredSquare iconSize)
+                    ]
+            )
+            polyhedronList
+        )
+
+
+centeredSquare : Float -> Rect
+centeredSquare length =
+    Rect (length / -2) (length / -2) length length
+
+
+
+-- icons
+
+
+iconEllipsis : Svg a
+iconEllipsis =
+    Svg.g
+        [ Svg.Attributes.class "icon"
+        , Svg.Attributes.transform "translate(0.5, 0.5)"
+        ]
+        ([ -1, 0, 1 ]
+            |> List.map
+                (\i ->
+                    Svg.circle
+                        [ Svg.Attributes.cx <| String.fromInt (i * 7)
+                        , Svg.Attributes.cy "0"
+                        , Svg.Attributes.r "1.5"
+                        ]
+                        []
+                )
+        )
+
+
+iconX : Svg a
+iconX =
+    Svg.g
+        [ Svg.Attributes.class "icon"
+        , Svg.Attributes.transform "translate(0.5, 0.5)"
+        ]
+        [ viewLine ( -7.5, 7.5 ) ( 7.5, -7.5 )
+        , viewLine ( 7.5, 7.5 ) ( -7.5, -7.5 )
+        ]
+
+
+
+-- svg
+
+
+type alias Rect =
+    { x : Float
+    , y : Float
+    , width : Float
+    , height : Float
+    }
+
+
+viewRect : List (Svg.Attribute a) -> Rect -> Svg a
+viewRect attributes { x, y, width, height } =
+    Svg.rect
+        (Svg.Attributes.x (String.fromFloat x)
+            :: Svg.Attributes.y (String.fromFloat y)
+            :: Svg.Attributes.width (String.fromFloat width)
+            :: Svg.Attributes.height (String.fromFloat height)
+            :: attributes
+        )
+        []
+
+
+viewLine : ( Float, Float ) -> ( Float, Float ) -> Svg a
+viewLine ( x1, y1 ) ( x2, y2 ) =
+    Svg.line
+        [ Svg.Attributes.x1 <| String.fromFloat x1
+        , Svg.Attributes.y1 <| String.fromFloat y1
+        , Svg.Attributes.x2 <| String.fromFloat x2
+        , Svg.Attributes.y2 <| String.fromFloat y2
+        ]
+        []
+
+
+translate : Float -> Float -> Svg.Attribute a
+translate x y =
+    Svg.Attributes.transform
+        ("translate(" ++ String.fromFloat x ++ " " ++ String.fromFloat y ++ ")")
+
+
+
+--
+
+
+bool : a -> a -> Bool -> a
+bool t f x =
+    if x then
+        t
+
+    else
+        f
