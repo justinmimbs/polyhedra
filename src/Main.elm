@@ -269,16 +269,7 @@ view { selected, orientation, slider, brushing, mode } =
                             [ Slider.view (BrushStarted SliderPosition) sliderBrushing slider
                             ]
                         , if t == 0 then
-                            Svg.g
-                                [ translate 0 spacing
-                                ]
-                                [ iconEllipsis
-                                , viewRect
-                                    [ Svg.Attributes.opacity "0"
-                                    , Svg.Events.onClick (ModeSelected Select)
-                                    ]
-                                    (centeredSquare 40)
-                                ]
+                            viewButton 0 spacing iconEllipsis (ModeSelected Select)
 
                           else
                             Svg.text ""
@@ -286,21 +277,30 @@ view { selected, orientation, slider, brushing, mode } =
 
                 Select ->
                     Svg.g
-                        [ translate 0 (layout.figureRadius + spacing)
-                        ]
-                        [ viewMenu rotationMatrix selected
+                        []
+                        [ Svg.text_ [] [ Svg.text (selected |> polyhedronData).name ]
                         , Svg.g
-                            [ translate 0 spacing
+                            [ translate 0 (layout.figureRadius + spacing)
                             ]
-                            [ iconX
-                            , viewRect
-                                [ Svg.Attributes.opacity "0"
-                                , Svg.Events.onClick (ModeSelected Transform)
-                                ]
-                                (centeredSquare 40)
+                            [ viewMenu rotationMatrix selected
+                            , viewButton 0 spacing iconX (ModeSelected Transform)
                             ]
                         ]
             ]
+        ]
+
+
+viewButton : Float -> Float -> Svg Msg -> Msg -> Svg Msg
+viewButton cx cy icon msg =
+    Svg.g
+        [ translate cx cy
+        ]
+        [ icon
+        , viewRect
+            [ Svg.Attributes.opacity "0"
+            , Svg.Events.onClick msg
+            ]
+            (centeredSquare 40)
         ]
 
 
