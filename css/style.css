@@ -1,8 +1,8 @@
 @font-face {
     font-family: 'Barlow';
     font-style: normal;
-    font-weight: 200;
-    src: local('Barlow ExtraLight'), local('Barlow-ExtraLight'), url(https://fonts.gstatic.com/s/barlow/v3/7cHqv4kjgoGqM7E3w-os51ostz0rdg.woff2) format('woff2');
+    font-weight: 400;
+    src: local('Barlow Regular'), local('Barlow-Regular'), url(https://fonts.gstatic.com/s/barlow/v3/7cHpv4kjgoGqM7E_DMs5ynghnQ.woff2) format('woff2');
     unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
@@ -17,7 +17,7 @@
     --amber: rgb(237, 148, 41);
     --green: rgb(100, 194, 46);
 
-    --warm-light: rgb(250, 245, 195);
+    --warm-light: rgba(250, 245, 195, 0.6);
     --cool-light: rgb(245, 250, 255);
 }
 
@@ -50,6 +50,8 @@ text {
     fill: white;
     font-size: 27px;
     font-family: Barlow, Helvetica, san-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
     text-transform: uppercase;
     text-anchor: middle;
     alignment-baseline: middle;
@@ -71,12 +73,10 @@ text {
 }
 
 .light {
-    fill: none;
     fill: var(--warm-light);
-    mix-blend-mode: soft-light;
+    mix-blend-mode: hard-light;
 }
 .dark {
-    fill: none;
     fill: rgb(40, 80, 140);
     mix-blend-mode: hard-light;
 }
@@ -93,6 +93,7 @@ text {
 .icon circle {
     fill: var(--primary);
     opacity: 0.8;
+    shape-rendering: geometricPrecision;
 }
 
 .icon line {
