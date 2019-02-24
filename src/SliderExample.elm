@@ -97,13 +97,35 @@ view { brushing, slider } =
             ]
             []
         , Svg.svg
-            [ Svg.Attributes.width "500"
-            , Svg.Attributes.height "500"
-            ]
+            ((case brushing of
+                Just _ ->
+                    [ Brush.touchMove BrushMoved
+                    , Brush.touchEnd BrushEnded
+                    ]
+
+                Nothing ->
+                    []
+             )
+                ++ [ Svg.Attributes.width "400"
+                   , Svg.Attributes.height "500"
+                   , Svg.Attributes.viewBox "-200 -250 400 500"
+                   , Svg.Attributes.preserveAspectRatio "xMidYMid slice"
+                   ]
+            )
             [ Svg.g
-                [ Svg.Attributes.transform "translate(100, 450) "
+                [ Svg.Attributes.transform "translate(-150, 0) "
                 ]
                 [ Slider.view BrushStarted brushing slider
                 ]
+            , case brushing of
+                Just brush ->
+                    Svg.g
+                        [ Svg.Attributes.transform "translate(0, -70) "
+                        ]
+                        [ Svg.text_ [] [ Svg.text ([ brush.to.x, brush.to.y ] |> List.map String.fromFloat |> String.join " , ") ]
+                        ]
+
+                Nothing ->
+                    Svg.text ""
             ]
         ]

@@ -92,6 +92,7 @@ view brushStarted maybeBrush ({ length } as slider) =
             , Svg.Attributes.cy "0"
             , Svg.Attributes.r "15"
             , Brush.onStart brushStarted
+            , Brush.touchStart brushStarted
             ]
             []
         ]
