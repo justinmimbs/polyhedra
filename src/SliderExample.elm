@@ -97,35 +97,36 @@ view { brushing, slider } =
             ]
             []
         , Svg.svg
-            ((case brushing of
-                Just _ ->
-                    [ Brush.touchMove BrushMoved
-                    , Brush.touchEnd BrushEnded
+            []
+            [ Svg.svg
+                ((case brushing of
+                    Just _ ->
+                        [ Brush.touchMove BrushMoved
+                        , Brush.touchEnd BrushEnded
+                        ]
+
+                    Nothing ->
+                        []
+                 )
+                    ++ [ Svg.Attributes.x "50%"
+                       , Svg.Attributes.y "50%"
+                       ]
+                )
+                [ Svg.g
+                    [ Svg.Attributes.transform "translate(-150, 0)"
                     ]
+                    [ Slider.view BrushStarted brushing slider
+                    ]
+                , case brushing of
+                    Just brush ->
+                        Svg.g
+                            [ Svg.Attributes.transform "translate(0, -70) "
+                            ]
+                            [ Svg.text_ [] [ Svg.text ([ brush.to.x, brush.to.y ] |> List.map String.fromFloat |> String.join " , ") ]
+                            ]
 
-                Nothing ->
-                    []
-             )
-                ++ [ Svg.Attributes.width "400"
-                   , Svg.Attributes.height "500"
-                   , Svg.Attributes.viewBox "-200 -250 400 500"
-                   , Svg.Attributes.preserveAspectRatio "xMidYMid slice"
-                   ]
-            )
-            [ Svg.g
-                [ Svg.Attributes.transform "translate(-150, 0) "
+                    Nothing ->
+                        Svg.text ""
                 ]
-                [ Slider.view BrushStarted brushing slider
-                ]
-            , case brushing of
-                Just brush ->
-                    Svg.g
-                        [ Svg.Attributes.transform "translate(0, -70) "
-                        ]
-                        [ Svg.text_ [] [ Svg.text ([ brush.to.x, brush.to.y ] |> List.map String.fromFloat |> String.join " , ") ]
-                        ]
-
-                Nothing ->
-                    Svg.text ""
             ]
         ]

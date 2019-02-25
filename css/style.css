@@ -27,7 +27,10 @@ html {
     margin: 0;
     padding: 0;
     height: 100%;
+    width: 100%;
     background: var(--surface);
+    overflow: hidden;
+    position: fixed;
 }
 
 body {
@@ -38,13 +41,15 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    overflow: hidden;
 }
 
 /* svg */
 
 svg {
+    width: 100vw;
+    height: 100vh;
     background: var(--surface);
+    overflow: visible;
 }
 text {
     fill: white;
