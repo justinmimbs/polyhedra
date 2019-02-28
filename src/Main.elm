@@ -221,7 +221,7 @@ view : Model -> Browser.Document Msg
 view { selected, orientation, slider, brushing, mode } =
     let
         spacing =
-            70.0
+            60.0
 
         rotationMatrix =
             (case brushing of
@@ -252,41 +252,58 @@ view { selected, orientation, slider, brushing, mode } =
             ]
             []
         , Svg.svg
-            [ Svg.Attributes.width "400"
-            , Svg.Attributes.height "500"
-            , Svg.Attributes.viewBox "-200 -180 400 500"
-            , Svg.Attributes.preserveAspectRatio "xMidYMid slice"
-            ]
-            [ viewFigure rotationMatrix t selected
-            , case mode of
-                Transform ->
-                    Svg.g
-                        [ translate 0 (layout.figureRadius + spacing)
-                        ]
-                        [ Svg.g
-                            [ translate (layout.sliderLength / -2) 0
-                            ]
-                            [ Slider.view (BrushStarted SliderPosition) sliderBrushing slider
-                            ]
-                        , if t == 0 then
-                            viewButton 0 spacing iconEllipsis (ModeSelected Select)
+            (case brushing of
+                Just _ ->
+                    [ Brush.touchMove BrushMoved
+                    , Brush.touchEnd BrushEnded
+                    ]
 
-                          else
-                            Svg.text ""
-                        ]
+                Nothing ->
+                    []
+            )
+            [ Svg.svg
+                [ Svg.Attributes.x "50%"
+                , Svg.Attributes.y "50%"
+                ]
+                [ viewFigure 0 -spacing rotationMatrix t selected
+                , Svg.g
+                    []
+                    (case mode of
+                        Transform ->
+                            [ viewSlider 0 layout.figureRadius sliderBrushing slider
+                            , if t == 0 then
+                                viewButton 0 (layout.figureRadius + spacing) iconEllipsis (ModeSelected Select)
 
-                Select ->
-                    Svg.g
-                        []
-                        [ Svg.text_ [] [ Svg.text (selected |> polyhedronData).name ]
-                        , Svg.g
-                            [ translate 0 (layout.figureRadius + spacing)
+                              else
+                                Svg.text ""
                             ]
-                            [ viewMenu rotationMatrix selected
-                            , viewButton 0 spacing iconX (ModeSelected Transform)
+
+                        Select ->
+                            [ viewText 0 -spacing (selected |> polyhedronData).name
+                            , viewMenu 0 layout.figureRadius rotationMatrix selected
+                            , viewButton 0 (layout.figureRadius + spacing) iconX (ModeSelected Transform)
                             ]
-                        ]
+                    )
+                ]
             ]
+        ]
+
+
+viewText : Float -> Float -> String -> Svg a
+viewText cx cy string =
+    Svg.text_
+        [ translate cx cy
+        ]
+        [ Svg.text string
+        ]
+
+
+viewSlider : Float -> Float -> Maybe Brush -> Slider -> Svg Msg
+viewSlider cx cy sliderBrushing slider =
+    Svg.g
+        [ translate (cx + layout.sliderLength / -2) cy
+        ]
+        [ Slider.view (BrushStarted SliderPosition) sliderBrushing slider
         ]
 
 
@@ -304,8 +321,8 @@ viewButton cx cy icon msg =
         ]
 
 
-viewFigure : Matrix -> Float -> Polyhedron -> Svg Msg
-viewFigure rotationMatrix t polyhedron =
+viewFigure : Float -> Float -> Matrix -> Float -> Polyhedron -> Svg Msg
+viewFigure cx cy rotationMatrix t polyhedron =
     let
         data =
             polyhedron |> polyhedronData
@@ -329,7 +346,8 @@ viewFigure rotationMatrix t polyhedron =
             { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
     in
     Svg.g
-        [ Svg.Attributes.transform "scale(1 -1)"
+        [ Svg.Attributes.transform
+            ("translate(" ++ String.fromFloat cx ++ ", " ++ String.fromFloat cy ++ ") scale(1, -1)")
         ]
         [ Render.meshFigure lightDirection (faceClass data.mesh.faces) meshTransformed
         , Svg.circle
@@ -338,13 +356,14 @@ viewFigure rotationMatrix t polyhedron =
             , Svg.Attributes.r <| String.fromFloat layout.figureRadius
             , Svg.Attributes.opacity "0"
             , Brush.onStart (BrushStarted ObjectRotation)
+            , Brush.touchStart (BrushStarted ObjectRotation)
             ]
             []
         ]
 
 
-viewMenu : Matrix -> Polyhedron -> Svg Msg
-viewMenu rotationMatrix selected =
+viewMenu : Float -> Float -> Matrix -> Polyhedron -> Svg Msg
+viewMenu cx cy rotationMatrix selected =
     let
         iconSize =
             44.0
@@ -359,7 +378,8 @@ viewMenu rotationMatrix selected =
             rotationMatrix |> matrixScale (iconSize / 2)
     in
     Svg.g
-        []
+        [ translate cx cy
+        ]
         (List.indexedMap
             (\i polyhedron ->
                 let
@@ -372,7 +392,7 @@ viewMenu rotationMatrix selected =
                 Svg.g
                     [ Svg.Attributes.class (polyhedron == selected |> bool "selected" "")
                     , Svg.Attributes.transform
-                        ("translate(" ++ String.fromFloat x ++ " 0) scale(1, -1)")
+                        ("translate(" ++ String.fromFloat x ++ ", 0) scale(1, -1)")
                     ]
                     [ Render.meshIcon
                         { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
@@ -464,7 +484,7 @@ viewLine ( x1, y1 ) ( x2, y2 ) =
 translate : Float -> Float -> Svg.Attribute a
 translate x y =
     Svg.Attributes.transform
-        ("translate(" ++ String.fromFloat x ++ " " ++ String.fromFloat y ++ ")")
+        ("translate(" ++ String.fromFloat x ++ ", " ++ String.fromFloat y ++ ")")
 
 
 

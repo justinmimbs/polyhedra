@@ -144,7 +144,7 @@ view { orientation, brushing } =
             , Svg.Attributes.height "500"
             ]
             [ Svg.g
-                [ Svg.Attributes.transform "translate(200, 200) scale(1 -1)"
+                [ Svg.Attributes.transform "translate(200, 200) scale(1, -1)"
                 ]
                 [ Render.meshFigure lightDirection (always "face a") meshTransformed
                 , Svg.circle

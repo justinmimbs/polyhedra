@@ -97,21 +97,19 @@ view { brushing, slider } =
             ]
             []
         , Svg.svg
-            []
-            [ Svg.svg
-                ((case brushing of
-                    Just _ ->
-                        [ Brush.touchMove BrushMoved
-                        , Brush.touchEnd BrushEnded
-                        ]
+            (case brushing of
+                Just _ ->
+                    [ Brush.touchMove BrushMoved
+                    , Brush.touchEnd BrushEnded
+                    ]
 
-                    Nothing ->
-                        []
-                 )
-                    ++ [ Svg.Attributes.x "50%"
-                       , Svg.Attributes.y "50%"
-                       ]
-                )
+                Nothing ->
+                    []
+            )
+            [ Svg.svg
+                [ Svg.Attributes.x "50%"
+                , Svg.Attributes.y "50%"
+                ]
                 [ Svg.g
                     [ Svg.Attributes.transform "translate(-150, 0)"
                     ]
