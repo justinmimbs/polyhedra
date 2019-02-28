@@ -93,7 +93,7 @@ view { brushing, slider } =
         "Slider"
         [ Html.node "link"
             [ Html.Attributes.rel "stylesheet"
-            , Html.Attributes.href "../css/style.css"
+            , Html.Attributes.href "../app/style.css"
             ]
             []
         , Svg.svg

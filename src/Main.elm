@@ -246,12 +246,7 @@ view { selected, orientation, slider, brushing, mode } =
     in
     Browser.Document
         "Polyhedra"
-        [ Html.node "link"
-            [ Html.Attributes.rel "stylesheet"
-            , Html.Attributes.href "../css/style.css"
-            ]
-            []
-        , Svg.svg
+        [ Svg.svg
             (case brushing of
                 Just _ ->
                     [ Brush.touchMove BrushMoved
