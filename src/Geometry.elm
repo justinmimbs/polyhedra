@@ -3,7 +3,7 @@ module Geometry exposing
     , Matrix, matrixIdentity, matrixScale, matrixLookAt, matrixMultiply, matrixMultiplyVector
     , Point, direction, distanceSquared, interpolate, midpoint
     , Polygon, polygonCenter, polygonIsClockwise
-    , Quaternion, quaternionIdentity, quaternionFromAxisAngle, quaternionMultiply, quaternionToMatrix
+    , Quaternion, quaternionIdentity, quaternionFromAxisAngle, quaternionFromTaitBryan, quaternionMultiply, quaternionToMatrix
     )
 
 {-|
@@ -12,7 +12,7 @@ module Geometry exposing
 @docs Matrix, matrixIdentity, matrixScale, matrixLookAt, matrixMultiply, matrixMultiplyVector
 @docs Point, direction, distanceSquared, interpolate, midpoint
 @docs Polygon, polygonCenter, polygonIsClockwise
-@docs Quaternion, quaternionIdentity, quaternionFromAxisAngle, quaternionMultiply, quaternionToMatrix
+@docs Quaternion, quaternionIdentity, quaternionFromAxisAngle, quaternionFromTaitBryan, quaternionMultiply, quaternionToMatrix
 
 -}
 
@@ -271,6 +271,15 @@ quaternionFromAxisAngle axis angle =
 
     else
         quaternionIdentity
+
+
+{-| z y x intrinsic (yaw, pitch, roll) == x y z extrinsic
+-}
+quaternionFromTaitBryan : Float -> Float -> Float -> Quaternion
+quaternionFromTaitBryan z y x =
+    ( cos (x / 2), Vector (sin (x / 2)) 0 0 )
+        |> quaternionMultiply ( cos (y / 2), Vector 0 (sin (y / 2)) 0 )
+        |> quaternionMultiply ( cos (z / 2), Vector 0 0 (sin (z / 2)) )
 
 
 quaternionMultiply : Quaternion -> Quaternion -> Quaternion

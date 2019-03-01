@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Brush exposing (Brush, Point2D)
@@ -32,6 +32,7 @@ init polyhedron =
         quaternionMultiply
             (quaternionFromAxisAngle (Vector 0 1 0) (pi / 5.5))
             (quaternionFromAxisAngle (Vector 1 0 0) (-pi / 6.5))
+    , viewportOrientation = TaitBryan 0 0
     , slider = Slider.init layout.sliderLength 0
     , brushing = Nothing
     , mode = Transform
@@ -41,6 +42,7 @@ init polyhedron =
 type alias Model =
     { selected : Polyhedron
     , orientation : Quaternion
+    , viewportOrientation : TaitBryan
     , slider : Slider
     , brushing : Maybe ( BrushTarget, Brush )
     , mode : Mode
@@ -63,6 +65,14 @@ type BrushTarget
 type Mode
     = Transform
     | Select
+
+
+{-| We're not concerned with yaw.
+-}
+type alias TaitBryan =
+    { pitch : Float
+    , roll : Float
+    }
 
 
 
@@ -120,6 +130,7 @@ type Msg
     | BrushEnded
     | ModeSelected Mode
     | PolyhedronSelected Polyhedron
+    | ViewportRotated TaitBryan
 
 
 update : Msg -> Model -> Model
@@ -154,6 +165,9 @@ update msg ({ orientation, slider, brushing } as model) =
         PolyhedronSelected polyhedron ->
             { model | selected = polyhedron }
 
+        ViewportRotated viewportOrientation ->
+            { model | viewportOrientation = viewportOrientation }
+
 
 rotationFromBrush : Brush -> Quaternion
 rotationFromBrush { from, to } =
@@ -175,6 +189,13 @@ rotationFromBrush { from, to } =
 
 
 
+-- ports
+
+
+port onViewportRotation : (TaitBryan -> msg) -> Sub msg
+
+
+
 -- events
 
 
@@ -182,7 +203,10 @@ subscriptions : Model -> Sub Msg
 subscriptions =
     let
         brushSubscriptions =
-            Brush.subscriptions BrushMoved BrushEnded
+            Sub.batch
+                [ Brush.subscriptions BrushMoved BrushEnded
+                , onViewportRotation ViewportRotated
+                ]
     in
     \{ brushing } ->
         case brushing of
@@ -190,7 +214,7 @@ subscriptions =
                 brushSubscriptions
 
             Nothing ->
-                Sub.none
+                onViewportRotation ViewportRotated
 
 
 
@@ -218,19 +242,21 @@ faceClass faces f =
 
 
 view : Model -> Browser.Document Msg
-view { selected, orientation, slider, brushing, mode } =
+view { selected, orientation, viewportOrientation, slider, brushing, mode } =
     let
         spacing =
             60.0
 
         rotationMatrix =
-            (case brushing of
-                Just ( ObjectRotation, brush ) ->
-                    quaternionMultiply orientation (rotationFromBrush brush)
+            quaternionMultiply
+                (case brushing of
+                    Just ( ObjectRotation, brush ) ->
+                        quaternionMultiply orientation (rotationFromBrush brush)
 
-                _ ->
-                    orientation
-            )
+                    _ ->
+                        orientation
+                )
+                (quaternionFromTaitBryan 0 (-0.5 * viewportOrientation.roll) (-0.5 * viewportOrientation.pitch))
                 |> quaternionToMatrix
 
         sliderBrushing =
