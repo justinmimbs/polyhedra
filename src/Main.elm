@@ -300,7 +300,7 @@ view { selected, orientation, viewportOrientation, slider, brushing, mode } =
                             ]
 
                         Select ->
-                            [ viewText 0 -spacing (selected |> polyhedronData).name
+                            [ viewText 0 -spacing (polyhedronData selected).name
                             , viewMenu 0 layout.figureRadius rotationMatrix selected
                             , viewButton 0 (layout.figureRadius + spacing) iconX (ModeSelected Transform)
                             ]
@@ -367,7 +367,8 @@ viewFigure cx cy rotationMatrix t polyhedron =
             { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
     in
     Svg.g
-        [ Svg.Attributes.transform
+        [ Svg.Attributes.class (polyhedronData polyhedron).name
+        , Svg.Attributes.transform
             ("translate(" ++ String.fromFloat cx ++ ", " ++ String.fromFloat cy ++ ") scale(1, -1)")
         ]
         [ Render.meshFigure lightDirection (faceClass data.mesh.faces) meshTransformed

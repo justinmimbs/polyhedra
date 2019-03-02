@@ -37,7 +37,7 @@ meshFigure lightDirection faceClass { vertices, faces } =
                                     else
                                         viewPolygon
                                             [ Svg.Attributes.opacity <| String.fromFloat (alpha ^ 2) ]
-                                            "dark"
+                                            "shade"
                                             polygon
                             in
                             ( backs, faceView :: fronts, lumaView :: luma )
@@ -49,7 +49,10 @@ meshFigure lightDirection faceClass { vertices, faces } =
     in
     Svg.g
         []
-        (backFaces ++ frontFaces ++ lumaFaces)
+        [ Svg.g [] backFaces
+        , Svg.g [] frontFaces
+        , Svg.g [] lumaFaces
+        ]
 
 
 meshIcon : Mesh -> Svg a
@@ -77,7 +80,9 @@ meshIcon { vertices, faces } =
     Svg.g
         [ Svg.Attributes.class "icon"
         ]
-        (backFaces ++ frontFaces)
+        [ Svg.g [] backFaces
+        , Svg.g [] frontFaces
+        ]
 
 
 viewPolygon : List (Svg.Attribute a) -> String -> Polygon -> Svg a

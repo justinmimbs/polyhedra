@@ -7,19 +7,23 @@
 }
 
 :root {
-    --surface: rgb(225, 230, 235);
-    --primary: rgb(80, 80, 80);
+    --surface: #E1E6EB;
+    --primary: #505050;
 
-    --magenta: rgb(255, 95, 135);
-    --cyan: rgb(70, 178, 214);
-    --red: rgb(230, 75, 65);
-    --orange: rgb(237, 118, 31);
-    --amber: rgb(237, 148, 41);
-    --green: rgb(100, 194, 46);
+    --gray1: #4B5266;
+    --gray2: #5A6579;
+    --orange: #ED761F;
+    --magenta: #FF5F87;
+    --cyan: #46B2D6;
+    --green: #64C22E;
 
-    --warm-light: rgba(250, 245, 195, 0.6);
-    --cool-light: rgb(245, 250, 255);
+    --warm-light: #FAF5C3;
+    --cool-shade: #28508C;
+
+    --light: #F5FAFF;
+    --shade: #333F53;
 }
+
 
 /* layout */
 
@@ -43,6 +47,7 @@ body {
     align-items: center;
 }
 
+
 /* svg */
 
 svg {
@@ -51,6 +56,7 @@ svg {
     background: var(--surface);
     overflow: visible;
 }
+
 text {
     fill: white;
     font-size: 27px;
@@ -64,27 +70,71 @@ text {
     pointer-events: none;
 }
 
+
+/* figure */
+
 .face {
-    stroke: rgba(255, 255, 255, 0.5);
+    stroke: white;
+    stroke-opacity: 0.5;
     stroke-width: 1px;
     stroke-linejoin: round;
     opacity: 0.9;
 }
-.face.a {
-    fill: var(--cyan);
-}
-.face.b {
-    fill: var(--green);
-}
 
 .light {
     fill: var(--warm-light);
+    fill-opacity: 0.5;
     mix-blend-mode: hard-light;
 }
-.dark {
-    fill: rgb(40, 80, 140);
+.shade {
+    fill: var(--cool-shade);
     mix-blend-mode: hard-light;
 }
+
+.tetrahedron .face.a {
+    fill: var(--gray1);
+}
+.tetrahedron .face.b {
+    fill: var(--gray2);
+}
+
+.tetrahedron .light {
+    fill: var(--light);
+}
+.tetrahedron .shade {
+    fill: var(--shade);
+}
+
+.cube .face.a {
+    fill: var(--orange);
+}
+.cube .face.b {
+    fill: var(--magenta);
+}
+
+.octahedron .face.a {
+    fill: var(--magenta);
+}
+.octahedron .face.b {
+    fill: var(--orange);
+}
+
+.icosahedron .face.a {
+    fill: var(--cyan);
+}
+.icosahedron .face.b {
+    fill: var(--green);
+}
+
+.dodecahedron .face.a {
+    fill: var(--green);
+}
+.dodecahedron .face.b {
+    fill: var(--cyan);
+}
+
+
+/* icons */
 
 .icon .face {
     fill: var(--surface);
@@ -106,6 +156,9 @@ text {
     stroke-width: 1.1;
     opacity: 0.8;
 }
+
+
+/* slider */
 
 .slider line {
     stroke: var(--primary);
