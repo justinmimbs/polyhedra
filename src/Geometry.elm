@@ -273,13 +273,16 @@ quaternionFromAxisAngle axis angle =
         quaternionIdentity
 
 
-{-| z y x intrinsic (yaw, pitch, roll) == x y z extrinsic
+{-| yaw pitch roll == intrinsic z y x == extrinsic x y z
 -}
 quaternionFromTaitBryan : Float -> Float -> Float -> Quaternion
 quaternionFromTaitBryan z y x =
-    ( cos (x / 2), Vector (sin (x / 2)) 0 0 )
-        |> quaternionMultiply ( cos (y / 2), Vector 0 (sin (y / 2)) 0 )
-        |> quaternionMultiply ( cos (z / 2), Vector 0 0 (sin (z / 2)) )
+    quaternionMultiply
+        ( cos (z / 2), Vector 0 0 (sin (z / 2)) )
+        (quaternionMultiply
+            ( cos (y / 2), Vector 0 (sin (y / 2)) 0 )
+            ( cos (x / 2), Vector (sin (x / 2)) 0 0 )
+        )
 
 
 quaternionMultiply : Quaternion -> Quaternion -> Quaternion
