@@ -32,7 +32,7 @@ init polyhedron =
         quaternionMultiply
             (quaternionFromAxisAngle (Vector 0 1 0) (pi / 5.5))
             (quaternionFromAxisAngle (Vector 1 0 0) (-pi / 6.5))
-    , viewportOrientation = TaitBryan 0 0
+    , viewportOrientation = Nothing
     , slider = Slider.init layout.sliderLength 0
     , brushing = Nothing
     , mode = Transform
@@ -42,7 +42,7 @@ init polyhedron =
 type alias Model =
     { selected : Polyhedron
     , orientation : Quaternion
-    , viewportOrientation : TaitBryan
+    , viewportOrientation : Maybe ViewportOrientation
     , slider : Slider
     , brushing : Maybe ( BrushTarget, Brush )
     , mode : Mode
@@ -65,6 +65,12 @@ type BrushTarget
 type Mode
     = Transform
     | Select
+
+
+type alias ViewportOrientation =
+    { initial : TaitBryan
+    , current : TaitBryan
+    }
 
 
 {-| We're not concerned with yaw.
@@ -165,8 +171,16 @@ update msg ({ orientation, slider, brushing } as model) =
         PolyhedronSelected polyhedron ->
             { model | selected = polyhedron }
 
-        ViewportRotated viewportOrientation ->
-            { model | viewportOrientation = viewportOrientation }
+        ViewportRotated angle ->
+            { model
+                | viewportOrientation =
+                    case model.viewportOrientation of
+                        Just { initial } ->
+                            Just { initial = initial, current = angle }
+
+                        Nothing ->
+                            Just { initial = angle, current = angle }
+            }
 
 
 rotationFromBrush : Brush -> Quaternion
@@ -186,6 +200,27 @@ rotationFromBrush { from, to } =
             (sqrt (dx * dx + dy * dy) / (layout.figureRadius * 2)) * pi
     in
     quaternionFromAxisAngle axis angle
+
+
+{-| Convert from a device to a screen coordinate system (by swapping and
+negating pitch and roll).
+
+    - device axes = x -> forward, y -> right, z -> down (i.e. roll, pitch, yaw)
+    - screen axes = x -> right, y -> up, z -> forward (i.e. left-handed)
+
+Also decrease the effect of the device orientation by some factor (0.5).
+
+-}
+rotationFromViewportOrientation : ViewportOrientation -> Quaternion
+rotationFromViewportOrientation { initial, current } =
+    let
+        deltaPitch =
+            current.pitch - initial.pitch
+
+        deltaRoll =
+            current.roll - initial.roll
+    in
+    quaternionFromTaitBryan 0 (0.5 * -deltaRoll) (0.5 * -deltaPitch)
 
 
 
@@ -248,6 +283,7 @@ view { selected, orientation, viewportOrientation, slider, brushing, mode } =
             60.0
 
         rotationMatrix =
+            -- orientation * brushing * viewportOrientation
             quaternionMultiply
                 (case brushing of
                     Just ( ObjectRotation, brush ) ->
@@ -256,7 +292,13 @@ view { selected, orientation, viewportOrientation, slider, brushing, mode } =
                     _ ->
                         orientation
                 )
-                (quaternionFromTaitBryan 0 (-0.5 * viewportOrientation.roll) (-0.5 * viewportOrientation.pitch))
+                (case viewportOrientation of
+                    Just vo ->
+                        rotationFromViewportOrientation vo
+
+                    Nothing ->
+                        quaternionIdentity
+                )
                 |> quaternionToMatrix
 
         sliderBrushing =
