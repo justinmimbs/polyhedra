@@ -126,6 +126,25 @@ polyhedronData =
                 data.dodecahedron
 
 
+dual : Polyhedron -> Polyhedron
+dual polyhedron =
+    case polyhedron of
+        Tetrahedron ->
+            Tetrahedron
+
+        Cube ->
+            Octahedron
+
+        Octahedron ->
+            Cube
+
+        Icosahedron ->
+            Dodecahedron
+
+        Dodecahedron ->
+            Icosahedron
+
+
 
 -- update
 
@@ -169,7 +188,11 @@ update msg ({ orientation, slider, brushing } as model) =
             { model | mode = mode }
 
         PolyhedronSelected polyhedron ->
-            { model | selected = polyhedron }
+            if Slider.value Nothing slider == 1 then
+                { model | selected = dual polyhedron }
+
+            else
+                { model | selected = polyhedron }
 
         ViewportRotated angle ->
             { model
@@ -334,7 +357,7 @@ view { selected, orientation, viewportOrientation, slider, brushing, mode } =
                     (case mode of
                         Transform ->
                             [ viewSlider 0 layout.figureRadius sliderBrushing slider
-                            , if t == 0 then
+                            , if t == 0 || t == 2 then
                                 viewButton 0 (layout.figureRadius + spacing) iconEllipsis (ModeSelected Select)
 
                               else
@@ -342,8 +365,13 @@ view { selected, orientation, viewportOrientation, slider, brushing, mode } =
                             ]
 
                         Select ->
-                            [ viewText 0 -spacing (polyhedronData selected).name
-                            , viewMenu 0 layout.figureRadius rotationMatrix selected
+                            let
+                                displayed : Polyhedron
+                                displayed =
+                                    t == 2 |> bool (dual selected) selected
+                            in
+                            [ viewText 0 -spacing (polyhedronData displayed).name
+                            , viewMenu 0 layout.figureRadius rotationMatrix displayed
                             , viewButton 0 (layout.figureRadius + spacing) iconX (ModeSelected Transform)
                             ]
                     )
