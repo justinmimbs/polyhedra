@@ -7,38 +7,41 @@ import Svg.Attributes
 
 type alias Slider =
     { length : Float
-    , val : Float
+    , position : Float
     }
 
 
 init : Float -> Float -> Slider
-init =
-    Slider
+init length val =
+    { length = length
+    , position = val * length
+    }
 
 
-valueWithBrush : Brush -> Slider -> Float
-valueWithBrush { from, to } { length, val } =
-    let
-        valDelta =
-            (to.x - from.x) / length
-    in
-    clamp 0 1 (val + valDelta)
+positionWithBrush : Brush -> Slider -> Float
+positionWithBrush { from, to } slider =
+    clamp 0 slider.length (slider.position + (to.x - from.x))
+
+
+position : Maybe Brush -> Slider -> Float
+position maybeBrush slider =
+    case maybeBrush of
+        Just brush ->
+            positionWithBrush brush slider
+
+        Nothing ->
+            slider.position
 
 
 value : Maybe Brush -> Slider -> Float
 value maybeBrush slider =
-    case maybeBrush of
-        Just brush ->
-            valueWithBrush brush slider
-
-        Nothing ->
-            slider.val
+    position maybeBrush slider / slider.length
 
 
 applyBrush : Brush -> Slider -> Slider
 applyBrush brush slider =
     { length = slider.length
-    , val = valueWithBrush brush slider
+    , position = positionWithBrush brush slider
     }
 
 
@@ -47,10 +50,10 @@ applyBrush brush slider =
 
 
 view : (Point2D -> msg) -> Maybe Brush -> Slider -> Svg msg
-view brushStarted maybeBrush ({ length } as slider) =
+view brushStarted maybeBrush slider =
     let
         x =
-            value maybeBrush slider * length
+            position maybeBrush slider
     in
     Svg.g
         [ Svg.Attributes.class <|
@@ -67,7 +70,7 @@ view brushStarted maybeBrush ({ length } as slider) =
         [ Svg.line
             [ Svg.Attributes.x1 <| String.fromFloat x
             , Svg.Attributes.y1 "0"
-            , Svg.Attributes.x2 <| String.fromFloat length
+            , Svg.Attributes.x2 <| String.fromFloat slider.length
             , Svg.Attributes.y2 "0"
             ]
             []
