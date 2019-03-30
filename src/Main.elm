@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser
+import Browser.Events
 import Brush exposing (Brush, Point2D)
 import Dict exposing (Dict)
 import Geometry exposing (..)
@@ -35,6 +36,7 @@ init polyhedron =
     , viewportOrientation = Nothing
     , slider = Slider.init layout.sliderLength 0
     , brushing = Nothing
+    , brushedRotation = Nothing
     , mode = Transform
     }
 
@@ -45,6 +47,7 @@ type alias Model =
     , viewportOrientation : Maybe ViewportOrientation
     , slider : Slider
     , brushing : Maybe ( BrushTarget, Brush )
+    , brushedRotation : Maybe MovingPoint
     , mode : Mode
     }
 
@@ -60,6 +63,12 @@ type Polyhedron
 type BrushTarget
     = SliderPosition
     | ObjectRotation
+
+
+type alias MovingPoint =
+    { point : Point2D
+    , velocity : Point2D
+    }
 
 
 type Mode
@@ -156,13 +165,28 @@ type Msg
     | ModeSelected Mode
     | PolyhedronSelected Polyhedron
     | ViewportRotated TaitBryan
+    | AnimationStepped Float
 
 
 update : Msg -> Model -> Model
-update msg ({ orientation, slider, brushing } as model) =
+update msg ({ orientation, slider, brushing, brushedRotation } as model) =
     case msg of
-        BrushStarted brushTarget point ->
-            { model | brushing = Just ( brushTarget, Brush.init point ) }
+        BrushStarted SliderPosition point ->
+            { model | brushing = Just ( SliderPosition, Brush.init point ) }
+
+        BrushStarted ObjectRotation point ->
+            { model
+                | brushing = Just ( ObjectRotation, Brush.init point )
+                , brushedRotation = Just { point = { x = 0, y = 0 }, velocity = { x = 0, y = 0 } }
+                , orientation =
+                    case brushedRotation of
+                        Just brushed ->
+                            -- apply previous brushedRotation
+                            quaternionMultiply orientation (rotationFromBrushDelta brushed.point)
+
+                        Nothing ->
+                            orientation
+            }
 
         BrushMoved point ->
             { model | brushing = brushing |> Maybe.map (Tuple.mapSecond (Brush.update point)) }
@@ -177,8 +201,7 @@ update msg ({ orientation, slider, brushing } as model) =
 
                 Just ( ObjectRotation, brush ) ->
                     { model
-                        | orientation = quaternionMultiply orientation (rotationFromBrush brush)
-                        , brushing = Nothing
+                        | brushing = Nothing
                     }
 
                 Nothing ->
@@ -205,22 +228,88 @@ update msg ({ orientation, slider, brushing } as model) =
                             Just { initial = angle, current = angle }
             }
 
+        AnimationStepped ms ->
+            if 0 < ms then
+                case brushedRotation of
+                    Just brushed ->
+                        let
+                            nextBrushedRotation =
+                                brushed |> updateBrushedRotation brushing (ms / 1000)
+                        in
+                        { model
+                            | brushedRotation = nextBrushedRotation
+                            , orientation =
+                                case nextBrushedRotation of
+                                    Nothing ->
+                                        -- rotation has stablized; apply brushedRotation
+                                        quaternionMultiply orientation (rotationFromBrushDelta brushed.point)
 
-rotationFromBrush : Brush -> Quaternion
-rotationFromBrush { from, to } =
+                                    Just _ ->
+                                        orientation
+                        }
+
+                    Nothing ->
+                        model
+
+            else
+                model
+
+
+updateBrushedRotation : Maybe ( BrushTarget, Brush ) -> Float -> MovingPoint -> Maybe MovingPoint
+updateBrushedRotation brushing dt previous =
     let
-        dx =
-            to.x - from.x
+        nextPoint =
+            case brushing of
+                Just ( ObjectRotation, { from, to } ) ->
+                    updateMovingPoint dt previous
+                        |> interpolatePoints 0.6
+                            { x = to.x - from.x
+                            , y = to.y - from.y
+                            }
 
-        dy =
-            to.y - from.y
+                _ ->
+                    updateMovingPoint dt previous
 
+        next =
+            { point =
+                nextPoint
+            , velocity =
+                { x = (nextPoint.x - previous.point.x) / dt
+                , y = (nextPoint.y - previous.point.y) / dt
+                }
+            }
+    in
+    if brushing == Nothing && abs next.velocity.x < 0.001 && abs next.velocity.y < 0.001 then
+        -- stablized
+        Nothing
+
+    else
+        Just next
+
+
+updateMovingPoint : Float -> MovingPoint -> Point2D
+updateMovingPoint dt { point, velocity } =
+    { x = point.x + velocity.x * dt * 0.8
+    , y = point.y + velocity.y * dt * 0.8
+    }
+
+
+interpolatePoints : Float -> Point2D -> Point2D -> Point2D
+interpolatePoints t a b =
+    { x = a.x + (b.x - a.x) * t
+    , y = a.y + (b.y - a.y) * t
+    }
+
+
+rotationFromBrushDelta : Point2D -> Quaternion
+rotationFromBrushDelta { x, y } =
+    let
         axis =
-            Vector -dy -dx 0 |> vectorNormalize
+            Vector -y -x 0 |> vectorNormalize
 
         angle =
             -- brushing a distance of the figure diameter gives a half-circle rotation
-            (sqrt (dx * dx + dy * dy) / (layout.figureRadius * 2)) * pi
+            (sqrt (x * x + y * y) / (layout.figureRadius * 2)) * pi
     in
     quaternionFromAxisAngle axis angle
 
@@ -258,21 +347,20 @@ port onViewportRotation : (TaitBryan -> msg) -> Sub msg
 
 
 subscriptions : Model -> Sub Msg
-subscriptions =
-    let
-        brushSubscriptions =
-            Sub.batch
-                [ Brush.subscriptions BrushMoved BrushEnded
-                , onViewportRotation ViewportRotated
-                ]
-    in
-    \{ brushing } ->
-        case brushing of
-            Just _ ->
-                brushSubscriptions
+subscriptions { brushing, brushedRotation } =
+    Sub.batch
+        [ onViewportRotation ViewportRotated
+        , if brushing /= Nothing then
+            Brush.subscriptions BrushMoved BrushEnded
 
-            Nothing ->
-                onViewportRotation ViewportRotated
+          else
+            Sub.none
+        , if brushedRotation /= Nothing then
+            Browser.Events.onAnimationFrameDelta AnimationStepped
+
+          else
+            Sub.none
+        ]
 
 
 
@@ -300,7 +388,7 @@ faceClass faces f =
 
 
 view : Model -> Browser.Document Msg
-view { selected, orientation, viewportOrientation, slider, brushing, mode } =
+view { selected, orientation, viewportOrientation, slider, brushing, brushedRotation, mode } =
     let
         spacing =
             60.0
@@ -308,11 +396,11 @@ view { selected, orientation, viewportOrientation, slider, brushing, mode } =
         rotationMatrix =
             -- orientation * brushing * viewportOrientation
             quaternionMultiply
-                (case brushing of
-                    Just ( ObjectRotation, brush ) ->
-                        quaternionMultiply orientation (rotationFromBrush brush)
+                (case brushedRotation of
+                    Just brushed ->
+                        quaternionMultiply orientation (rotationFromBrushDelta brushed.point)
 
-                    _ ->
+                    Nothing ->
                         orientation
                 )
                 (case viewportOrientation of
