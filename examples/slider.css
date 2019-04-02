@@ -1,0 +1,63 @@
+:root {
+    --surface: #E1E6EB;
+    --primary: #505050;
+}
+
+
+/* layout */
+
+html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    background: var(--surface);
+    overflow: hidden;
+    position: fixed;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+
+/* svg */
+
+svg {
+    width: 100vw;
+    height: 100vh;
+    background: var(--surface);
+    overflow: visible;
+}
+
+
+/* slider */
+
+.slider line {
+    stroke: var(--primary);
+    stroke-width: 1px;
+    stroke-linecap: round;
+    opacity: 0.3;
+}
+.slider line.active {
+    opacity: 0.6;
+}
+
+.slider .thumb {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 1.1;
+    opacity: 0.8;
+}
+.slider.pressed .thumb {
+    opacity: 1;
+}
+.slider .thumb-toucharea {
+    opacity: 0;
+}

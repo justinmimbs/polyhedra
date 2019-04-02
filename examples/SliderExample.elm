@@ -93,7 +93,7 @@ view { brushing, slider } =
         "Slider"
         [ Html.node "link"
             [ Html.Attributes.rel "stylesheet"
-            , Html.Attributes.href "../app/style.css"
+            , Html.Attributes.href "slider.css"
             ]
             []
         , Svg.svg
@@ -115,16 +115,6 @@ view { brushing, slider } =
                     ]
                     [ Slider.view BrushStarted brushing slider
                     ]
-                , case brushing of
-                    Just brush ->
-                        Svg.g
-                            [ Svg.Attributes.transform "translate(0, -70) "
-                            ]
-                            [ Svg.text_ [] [ Svg.text ([ brush.to.x, brush.to.y ] |> List.map String.fromFloat |> String.join " , ") ]
-                            ]
-
-                    Nothing ->
-                        Svg.text ""
                 ]
             ]
         ]
