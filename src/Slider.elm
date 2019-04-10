@@ -51,7 +51,7 @@ applyBrush brush slider =
 -- view
 
 
-view : (Point2D -> msg) -> Maybe Brush -> Slider -> Svg msg
+view : (Brush -> msg) -> Maybe Brush -> Slider -> Svg msg
 view brushStarted maybeBrush slider =
     let
         x =
@@ -92,14 +92,14 @@ view brushStarted maybeBrush slider =
             ]
             []
         , Svg.rect
-            [ Svg.Attributes.class "thumb-toucharea"
-            , Svg.Attributes.x <| String.fromFloat (x - 20)
-            , Svg.Attributes.y "-20"
-            , Svg.Attributes.width "40"
-            , Svg.Attributes.height "40"
-            , Brush.onStart brushStarted
-            , Brush.touchStart brushStarted
-            ]
+            (Brush.onStart brushStarted
+                ++ [ Svg.Attributes.class "thumb-toucharea"
+                   , Svg.Attributes.x <| String.fromFloat (x - 20)
+                   , Svg.Attributes.y "-20"
+                   , Svg.Attributes.width "40"
+                   , Svg.Attributes.height "40"
+                   ]
+            )
             []
         ]
 

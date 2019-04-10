@@ -1,7 +1,8 @@
 module SliderExample exposing (main)
 
 import Browser
-import Brush exposing (Brush, Point2D)
+import Browser.Events
+import Brush exposing (Brush)
 import Html exposing (Html)
 import Html.Attributes
 import Slider exposing (Slider)
@@ -37,19 +38,19 @@ initialModel =
 
 
 type Msg
-    = BrushStarted Point2D
-    | BrushMoved Point2D
+    = BrushStarted Brush
+    | BrushMoved Brush
     | BrushEnded
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     ( case msg of
-        BrushStarted point ->
-            { model | brushing = Just (Brush.init point) }
+        BrushStarted brush ->
+            { model | brushing = Just brush }
 
-        BrushMoved point ->
-            { model | brushing = model.brushing |> Maybe.map (Brush.update point) }
+        BrushMoved brush ->
+            { model | brushing = model.brushing |> Maybe.map (always brush) }
 
         BrushEnded ->
             case model.brushing of
@@ -69,18 +70,12 @@ update msg model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions =
-    let
-        brushSubscriptions =
-            Brush.subscriptions BrushMoved BrushEnded
-    in
-    \{ brushing } ->
-        case brushing of
-            Just _ ->
-                brushSubscriptions
+subscriptions { brushing } =
+    if brushing /= Nothing then
+        Browser.Events.onVisibilityChange (always BrushEnded)
 
-            Nothing ->
-                Sub.none
+    else
+        Sub.none
 
 
 
@@ -98,10 +93,8 @@ view { brushing, slider } =
             []
         , Svg.svg
             (case brushing of
-                Just _ ->
-                    [ Brush.touchMove BrushMoved
-                    , Brush.touchEnd BrushEnded
-                    ]
+                Just brush ->
+                    Brush.onBrush BrushMoved BrushEnded brush
 
                 Nothing ->
                     []

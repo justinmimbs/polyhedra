@@ -1,18 +1,23 @@
-module Brush exposing (Brush, Point2D, init, onStart, subscriptions, touchEnd, touchMove, touchStart, update)
+module Brush exposing (Brush, Point2D, onBrush, onStart)
 
 import Browser.Events
 import Html
+import Html.Attributes
 import Html.Events
 import Json.Decode as Decode exposing (Decoder)
-import Svg
-import Svg.Attributes
-import Svg.Events
 
 
 type alias Brush =
-    { from : Point2D
+    { eventType : EventType
+    , from : Point2D
     , to : Point2D
     }
+
+
+type EventType
+    = Pointer
+    | Mouse
+    | Touch
 
 
 type alias Point2D =
@@ -21,38 +26,54 @@ type alias Point2D =
     }
 
 
-
---
-
-
-init : Point2D -> Brush
-init point =
-    { from = point, to = point }
-
-
-update : Point2D -> Brush -> Brush
-update point { from } =
-    { from = from, to = point }
+init : EventType -> Point2D -> Brush
+init eventType point =
+    { eventType = eventType
+    , from = point
+    , to = point
+    }
 
 
-
--- events
-
-
-onStart : (Point2D -> msg) -> Svg.Attribute msg
+onStart : (Brush -> msg) -> List (Html.Attribute msg)
 onStart started =
-    Svg.Events.preventDefaultOn
+    [ Html.Events.preventDefaultOn
+        "pointerdown"
+        (decodePosition |> Decode.map (\point -> ( started (init Pointer point), True )))
+    , Html.Events.preventDefaultOn
+        "touchstart"
+        (decodeTouchPosition |> Decode.map (\point -> ( started (init Touch point), True )))
+    , Html.Events.preventDefaultOn
         "mousedown"
-        (decodePosition |> Decode.map (\point -> ( started point, True )))
+        (decodePosition |> Decode.map (\point -> ( started (init Mouse point), True )))
+    ]
 
 
-subscriptions : (Point2D -> msg) -> msg -> Sub msg
-subscriptions moved ended =
-    Sub.batch
-        [ Browser.Events.onMouseMove (Decode.map moved decodePosition)
-        , Browser.Events.onMouseUp (Decode.succeed ended)
-        , Browser.Events.onVisibilityChange (always ended)
-        ]
+onBrush : (Brush -> msg) -> msg -> Brush -> List (Html.Attribute msg)
+onBrush moved ended brush =
+    let
+        movedTo : Point2D -> msg
+        movedTo point =
+            moved
+                { eventType = brush.eventType
+                , from = brush.from
+                , to = point
+                }
+    in
+    case brush.eventType of
+        Pointer ->
+            [ Html.Events.on "pointermove" (decodePosition |> Decode.map movedTo)
+            , Html.Events.on "pointerup" (Decode.succeed ended)
+            ]
+
+        Touch ->
+            [ Html.Events.on "touchmove" (decodeTouchPosition |> Decode.map movedTo)
+            , Html.Events.on "touchend" (Decode.succeed ended)
+            ]
+
+        Mouse ->
+            [ Html.Events.on "mousemove" (decodePosition |> Decode.map movedTo)
+            , Html.Events.on "mouseup" (Decode.succeed ended)
+            ]
 
 
 decodePosition : Decoder Point2D
@@ -62,33 +83,8 @@ decodePosition =
         (Decode.field "pageY" Decode.float)
 
 
-
--- touch
-
-
-touchStart : (Point2D -> msg) -> Svg.Attribute msg
-touchStart started =
-    Svg.Events.preventDefaultOn
-        "touchstart"
-        (decodeTouch |> Decode.map (\point -> ( started point, True )))
-
-
-touchMove : (Point2D -> msg) -> Html.Attribute msg
-touchMove moved =
-    Html.Events.on
-        "touchmove"
-        (decodeTouch |> Decode.map moved)
-
-
-touchEnd : msg -> Html.Attribute msg
-touchEnd msg =
-    Html.Events.on
-        "touchend"
-        (Decode.succeed msg)
-
-
-decodeTouch : Decoder Point2D
-decodeTouch =
+decodeTouchPosition : Decoder Point2D
+decodeTouchPosition =
     Decode.field "touches"
         (Decode.field "length" Decode.int
             |> Decode.andThen

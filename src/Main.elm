@@ -159,8 +159,8 @@ dual polyhedron =
 
 
 type Msg
-    = BrushStarted BrushTarget Point2D
-    | BrushMoved Point2D
+    = BrushStarted BrushTarget Brush
+    | BrushMoved Brush
     | BrushEnded
     | ModeSelected Mode
     | PolyhedronSelected Polyhedron
@@ -171,12 +171,12 @@ type Msg
 update : Msg -> Model -> Model
 update msg ({ orientation, slider, brushing, brushedRotation } as model) =
     case msg of
-        BrushStarted SliderPosition point ->
-            { model | brushing = Just ( SliderPosition, Brush.init point ) }
+        BrushStarted SliderPosition brush ->
+            { model | brushing = Just ( SliderPosition, brush ) }
 
-        BrushStarted ObjectRotation point ->
+        BrushStarted ObjectRotation brush ->
             { model
-                | brushing = Just ( ObjectRotation, Brush.init point )
+                | brushing = Just ( ObjectRotation, brush )
                 , brushedRotation = Just { point = { x = 0, y = 0 }, velocity = { x = 0, y = 0 } }
                 , orientation =
                     case brushedRotation of
@@ -188,8 +188,8 @@ update msg ({ orientation, slider, brushing, brushedRotation } as model) =
                             orientation
             }
 
-        BrushMoved point ->
-            { model | brushing = brushing |> Maybe.map (Tuple.mapSecond (Brush.update point)) }
+        BrushMoved brush ->
+            { model | brushing = brushing |> Maybe.map (Tuple.mapSecond (always brush)) }
 
         BrushEnded ->
             case brushing of
@@ -351,7 +351,7 @@ subscriptions { brushing, brushedRotation } =
     Sub.batch
         [ onViewportRotation ViewportRotated
         , if brushing /= Nothing then
-            Brush.subscriptions BrushMoved BrushEnded
+            Browser.Events.onVisibilityChange (always BrushEnded)
 
           else
             Sub.none
@@ -427,10 +427,8 @@ view { selected, orientation, viewportOrientation, slider, brushing, brushedRota
         "Polyhedra"
         [ Svg.svg
             (case brushing of
-                Just _ ->
-                    [ Brush.touchMove BrushMoved
-                    , Brush.touchEnd BrushEnded
-                    ]
+                Just ( _, brush ) ->
+                    Brush.onBrush BrushMoved BrushEnded brush
 
                 Nothing ->
                     []
@@ -531,13 +529,13 @@ viewFigure cx cy rotationMatrix t polyhedron =
         ]
         [ Render.meshFigure lightDirection (faceClass data.mesh.faces) meshTransformed
         , Svg.circle
-            [ Svg.Attributes.cx "0"
-            , Svg.Attributes.cy "0"
-            , Svg.Attributes.r <| String.fromFloat layout.figureRadius
-            , Svg.Attributes.opacity "0"
-            , Brush.onStart (BrushStarted ObjectRotation)
-            , Brush.touchStart (BrushStarted ObjectRotation)
-            ]
+            (Brush.onStart (BrushStarted ObjectRotation)
+                ++ [ Svg.Attributes.cx "0"
+                   , Svg.Attributes.cy "0"
+                   , Svg.Attributes.r <| String.fromFloat layout.figureRadius
+                   , Svg.Attributes.opacity "0"
+                   ]
+            )
             []
         ]
 
