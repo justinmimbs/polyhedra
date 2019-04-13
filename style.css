@@ -1,0 +1,184 @@
+@font-face {
+    font-family: 'Barlow';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Barlow Regular'), local('Barlow-Regular'), url(https://fonts.gstatic.com/s/barlow/v3/7cHpv4kjgoGqM7E_DMs5ynghnQ.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+    --surface: #E1E6EB;
+    --primary: #505050;
+
+    --gray1: #454B5E;
+    --gray2: #5E6778;
+    --orange: #F97B1A;
+    --magenta: #FF5F87;
+    --cyan: #46B2D6;
+    --green: #64C22E;
+
+    --warm-light: #FAF5C3;
+    --cool-shade: #28508C;
+
+    --light: #F5FAFF;
+    --shade: #333F53;
+}
+
+
+/* layout */
+
+html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    background: var(--surface);
+    overflow: hidden;
+    position: fixed;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+
+/* svg */
+
+svg {
+    width: 100vw;
+    height: 100vh;
+    background: var(--surface);
+    overflow: visible;
+}
+
+text {
+    fill: white;
+    font-size: 27px;
+    font-family: Barlow, Helvetica, san-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+    text-transform: uppercase;
+    text-anchor: middle;
+    alignment-baseline: middle;
+    user-select: none;
+    pointer-events: none;
+}
+
+
+/* figure */
+
+.face {
+    stroke: white;
+    stroke-opacity: 0.5;
+    stroke-width: 1px;
+    stroke-linejoin: round;
+    opacity: 0.9;
+}
+
+.light {
+    fill: var(--warm-light);
+    fill-opacity: 0.5;
+    mix-blend-mode: hard-light;
+}
+.shade {
+    fill: var(--cool-shade);
+    mix-blend-mode: hard-light;
+}
+
+.tetrahedron .face.a {
+    fill: var(--gray1);
+}
+.tetrahedron .face.b {
+    fill: var(--gray2);
+}
+
+.tetrahedron .light {
+    fill: var(--light);
+}
+.tetrahedron .shade {
+    fill: var(--shade);
+}
+
+.cube .face.a {
+    fill: var(--orange);
+}
+.cube .face.b {
+    fill: var(--magenta);
+}
+
+.octahedron .face.a {
+    fill: var(--magenta);
+}
+.octahedron .face.b {
+    fill: var(--orange);
+}
+
+.icosahedron .face.a {
+    fill: var(--cyan);
+}
+.icosahedron .face.b {
+    fill: var(--green);
+}
+
+.dodecahedron .face.a {
+    fill: var(--green);
+}
+.dodecahedron .face.b {
+    fill: var(--cyan);
+}
+
+
+/* icons */
+
+.icon .face {
+    fill: var(--surface);
+    stroke: var(--primary);
+    stroke-opacity: 0.7;
+}
+.selected .icon .face {
+    stroke-opacity: 0.2;
+}
+
+.icon circle {
+    fill: var(--primary);
+    opacity: 0.8;
+    shape-rendering: geometricPrecision;
+}
+
+.icon line {
+    stroke: var(--primary);
+    stroke-width: 1.1;
+    opacity: 0.8;
+}
+
+
+/* slider */
+
+.slider line {
+    stroke: var(--primary);
+    stroke-width: 1px;
+    stroke-linecap: round;
+    opacity: 0.3;
+}
+.slider line.active {
+    opacity: 0.6;
+}
+
+.slider .thumb {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 1.1;
+    opacity: 0.8;
+}
+.slider.pressed .thumb {
+    opacity: 1;
+}
+.slider .thumb-toucharea {
+    opacity: 0;
+}

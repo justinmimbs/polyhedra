@@ -1,0 +1,47 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Polyhedra</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="main.js"></script>
+  </head>
+  <body>
+    <script>
+
+const app = Elm.Main.init();
+
+window.addEventListener('deviceorientation', function (event) {
+    if (event.alpha !== undefined) {
+        app.ports.onViewportRotation.send(viewportOrientation(event));
+    }
+});
+
+function screenOrientation() {
+    return window.orientation !== undefined ? window.orientation : (window.screen ? window.screen.orientation.angle : 0);
+}
+
+function viewportOrientation({ beta, gamma }) {
+    switch (screenOrientation()) {
+    case 0:
+        return taitBryan(beta, gamma);
+    case 90:
+        return taitBryan(-gamma, beta);
+    case 180:
+        return taitBryan(-beta, -gamma);
+    default: // -90, 270
+        return taitBryan(gamma, -beta);
+    }
+}
+
+function taitBryan(beta, gamma) {
+    return {
+        pitch: beta * Math.PI / 180,
+        roll: gamma * Math.PI / 180
+    };
+}
+
+    </script>
+  </body>
+</html>
