@@ -7,8 +7,8 @@ import Dict exposing (Dict)
 import Geometry exposing (..)
 import Html exposing (Html)
 import Html.Attributes
-import Mesh exposing (Mesh, SuperMesh, reify)
-import Polyhedron exposing (bitruncate, cube, dodecahedron, icosahedron, octahedron, tetrahedron, truncate)
+import Mesh exposing (Mesh, SuperMesh)
+import Polyhedron exposing (cube, dodecahedron, icosahedron, octahedron, tetrahedron)
 import Render
 import Slider exposing (Slider)
 import Svg exposing (Svg)
@@ -20,7 +20,7 @@ main : Program () Model Msg
 main =
     Browser.document
         { init = \_ -> ( init Icosahedron, Cmd.none )
-        , update = \msg model -> ( update msg model, Cmd.none )
+        , update = \msg model -> ( update msg model, command msg )
         , view = view
         , subscriptions = subscriptions
         }
@@ -38,6 +38,7 @@ init polyhedron =
     , brushing = Nothing
     , brushedRotation = Nothing
     , mode = Transform
+    , needPermission = False
     }
 
 
@@ -49,6 +50,7 @@ type alias Model =
     , brushing : Maybe ( BrushTarget, Brush )
     , brushedRotation : Maybe MovingPoint
     , mode : Mode
+    , needPermission : Bool -- Device Motion/Orientation Permission
     }
 
 
@@ -105,8 +107,8 @@ polyhedronData =
         toData name mesh =
             { name = name
             , mesh = mesh
-            , truncation = truncate mesh
-            , bitruncation = bitruncate mesh
+            , truncation = Polyhedron.truncate mesh
+            , bitruncation = Polyhedron.bitruncate mesh
             }
 
         data =
@@ -162,8 +164,10 @@ type Msg
     = BrushStarted BrushTarget Brush
     | BrushMoved Brush
     | BrushEnded
-    | ModeSelected Mode
-    | PolyhedronSelected Polyhedron
+    | SelectedMode Mode
+    | SelectedPolyhedron Polyhedron
+    | ReceivedNeedPermission Bool
+    | ClickedRequestPermission
     | ViewportRotated TaitBryan
     | AnimationStepped Float
 
@@ -207,15 +211,21 @@ update msg ({ orientation, slider, brushing, brushedRotation } as model) =
                 Nothing ->
                     model
 
-        ModeSelected mode ->
+        SelectedMode mode ->
             { model | mode = mode }
 
-        PolyhedronSelected polyhedron ->
+        SelectedPolyhedron polyhedron ->
             if Slider.value Nothing slider == 1 then
                 { model | selected = dual polyhedron }
 
             else
                 { model | selected = polyhedron }
+
+        ReceivedNeedPermission needPermission ->
+            { model | needPermission = needPermission }
+
+        ClickedRequestPermission ->
+            model
 
         ViewportRotated angle ->
             { model
@@ -336,10 +346,30 @@ rotationFromViewportOrientation { initial, current } =
 
 
 
+-- commands
+
+
+command : Msg -> Cmd Msg
+command msg =
+    case msg of
+        ClickedRequestPermission ->
+            requestPermission ()
+
+        _ ->
+            Cmd.none
+
+
+
 -- ports
 
 
 port onViewportRotation : (TaitBryan -> msg) -> Sub msg
+
+
+port onNeedPermission : (Bool -> msg) -> Sub msg
+
+
+port requestPermission : () -> Cmd msg
 
 
 
@@ -350,6 +380,7 @@ subscriptions : Model -> Sub Msg
 subscriptions { brushing, brushedRotation } =
     Sub.batch
         [ onViewportRotation ViewportRotated
+        , onNeedPermission ReceivedNeedPermission
         , if brushing /= Nothing then
             Browser.Events.onVisibilityChange (always BrushEnded)
 
@@ -388,7 +419,7 @@ faceClass faces f =
 
 
 view : Model -> Browser.Document Msg
-view { selected, orientation, viewportOrientation, slider, brushing, brushedRotation, mode } =
+view { selected, orientation, viewportOrientation, slider, brushing, brushedRotation, mode, needPermission } =
     let
         spacing =
             60.0
@@ -444,7 +475,7 @@ view { selected, orientation, viewportOrientation, slider, brushing, brushedRota
                         Transform ->
                             [ viewSlider 0 layout.figureRadius sliderBrushing slider
                             , if t == 0 || t == 2 then
-                                viewButton 0 (layout.figureRadius + spacing) iconEllipsis (ModeSelected Select)
+                                viewButton 0 (layout.figureRadius + spacing) iconEllipsis (SelectedMode Select)
 
                               else
                                 Svg.text ""
@@ -458,9 +489,14 @@ view { selected, orientation, viewportOrientation, slider, brushing, brushedRota
                             in
                             [ viewText 0 -spacing (polyhedronData displayed).name
                             , viewMenu 0 layout.figureRadius rotationMatrix displayed
-                            , viewButton 0 (layout.figureRadius + spacing) iconX (ModeSelected Transform)
+                            , viewButton 0 (layout.figureRadius + spacing) iconX (SelectedMode Transform)
                             ]
                     )
+                , if needPermission then
+                    viewButton (layout.sliderLength / 2) (layout.figureRadius + spacing) iconRotation ClickedRequestPermission
+
+                  else
+                    Svg.text ""
                 ]
             ]
         ]
@@ -506,10 +542,10 @@ viewFigure cx cy rotationMatrix t polyhedron =
 
         mesh =
             if t <= 1.0 then
-                reify t data.truncation
+                Mesh.reify t data.truncation
 
             else
-                reify (t - 1.0) data.bitruncation
+                Mesh.reify (t - 1.0) data.bitruncation
 
         radius =
             mesh.vertices
@@ -576,7 +612,7 @@ viewMenu cx cy rotationMatrix selected =
                         { mesh | vertices = mesh.vertices |> Dict.map (\_ -> matrixMultiplyVector matrix) }
                     , viewRect
                         [ Svg.Attributes.opacity "0"
-                        , Svg.Events.onClick (PolyhedronSelected polyhedron)
+                        , Svg.Events.onClick (SelectedPolyhedron polyhedron)
                         ]
                         (centeredSquare iconSize)
                     ]
@@ -621,6 +657,18 @@ iconX =
         ]
         [ viewLine ( -7.5, 7.5 ) ( 7.5, -7.5 )
         , viewLine ( 7.5, 7.5 ) ( -7.5, -7.5 )
+        ]
+
+
+iconRotation : Svg a
+iconRotation =
+    Svg.g
+        [ Svg.Attributes.class "icon"
+        ]
+        [ Svg.path
+            [ Svg.Attributes.d "M -8.5 -2.5 L -11 0 L -8 3 M -2.5 8.5 L 0 11 L 3 8 M 8 3 L 11 0 L 8.5 -2.5 M 3 -8 L 0 -11 L -2.5 -8.5 M -10 0 C -8 1 -4 2 0 2 C 4 2 8 1 10 0 M 0 -10 C 1 -8 2 -4 2 0 C 2 4 1 8 0 10"
+            ]
+            []
         ]
 
 

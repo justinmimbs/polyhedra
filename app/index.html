@@ -12,6 +12,20 @@
 
 const app = Elm.Main.init();
 
+app.ports.requestPermission.subscribe(function(_) {
+    DeviceOrientationEvent.requestPermission()
+        .then(response => {
+            app.ports.onNeedPermission.send(false);
+        });
+});
+
+if (DeviceOrientationEvent.requestPermission) {
+    DeviceOrientationEvent.requestPermission()
+        .catch(error => {
+            app.ports.onNeedPermission.send(true);
+        });
+}
+
 window.addEventListener('deviceorientation', function (event) {
     if (event.alpha !== undefined) {
         app.ports.onViewportRotation.send(viewportOrientation(event));
